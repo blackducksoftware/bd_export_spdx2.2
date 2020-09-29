@@ -1,7 +1,7 @@
 # Synopsys Black Duck - bd_export_spdx.py
 # OVERVIEW
 
-This script is provided under an OSS license (specified in the LICENSE file) to allow users to export an SPDX tag-value file from Black Duck projects.
+This script is provided under an OSS license (specified in the LICENSE file) to allow users to export an SPDX version 2.2 tag-value file from Black Duck projects.
 
 It does not represent any extension of licensed functionality of Synopsys software itself and is provided as-is, without warranty or liability.
 
