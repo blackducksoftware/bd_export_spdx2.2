@@ -59,6 +59,6 @@ If `project_name` does not match a single project then all matching projects wil
 
 If `version` does not match a single project version then all matching versions will be listed and the script will terminate.
 
-The `--output out_file` or `-o out_file` options specifies the output file. If this file already exists, the previous version will be renamed with a unique number (e.g. .001). The default file name '<project>-<version>.spdx' will be used if not specified.
+The `--output out_file` or `-o out_file` options specifies the output file. If this file already exists, the previous version will be renamed with a unique number (e.g. .001). The default file name `<project>-<version>.spdx` will be used if not specified.
 
 The `--recursive` or `-r` options will cause Black Duck sub-projects to be processed, adding the components of sub-projects to the overall SPDX output file. If the processed project version contains sub-projects and this option is not specified, they will be ignored.
