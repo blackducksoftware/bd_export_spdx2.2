@@ -17,6 +17,8 @@ The output file in SPDX tag-value format can optionally be specified; the projec
 
 The optional `--recursive` option will traverse sub-projects to include all leaf components. If not specified, and sub-projects exist in the specified project, then the sub-projects will be skipped.
 
+Other options can be specified to reduce the number of API calls to speed up script execution.
+
 # PREREQUISITES
 
 1. Python 3 must be installed.
@@ -53,7 +55,8 @@ The `bd_export_spdx22.py` script can be invoked as follows:
          version               Black Duck version name
 
        Optional arguments:
-         -h, --help            show this help message and exit
+         -h, --help            Show this help message and exit
+         -v, --version         Print script version and exit 
          -o OUTPUT, --output OUTPUT
                                Output SPDX file name (SPDX tag format) - default
                                '<proj>-<ver>.spdx'
