@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-script_version = "0.1 beta"
+script_version = "0.15 Beta"
 
 import argparse
 import json
@@ -110,6 +110,8 @@ def list_versions(version_string):
 	vers = hub.get_project_versions(project, parameters={})
 	for ver in vers['items']:
 		print(" - " + ver['versionName'])
+
+print("BLACK DUCK SPDX EXPORT SCRIPT VERSION {}\n".format(script_version))
 
 hub = HubInstance()
 
@@ -237,7 +239,7 @@ def get_licenses(comp):
 					resp = hub.execute_get(lic_url, custom_headers=custom_headers)
 					lic_text = resp.content.decode("utf-8")
 					if thislic not in spdx_custom_lics:
-						spdx_custom_lics_text += [ 'LicenseID: ' + thislic, 'ExtractedText: <text>' + lic_text + '</text>']
+						spdx_custom_lics_text += [ '', 'LicenseID: ' + thislic, 'ExtractedText: <text>' + lic_text + '</text>']
 						spdx_custom_lics.append(thislic)
 				except:
 					pass
@@ -256,6 +258,7 @@ def get_orig_data(comp):
 	# Get copyrights, CPE
 	copyrights = "NOASSERTION"
 	cpe = "NOASSERTION"
+	pkg = "NOASSERTION"
 	try:
 		if 'origins' in comp.keys() and len(comp['origins']) > 0:
 			orig = comp['origins'][0]
@@ -265,8 +268,10 @@ def get_orig_data(comp):
 				if len(id) == 2:
 					# Special case for github
 					cpe = "cpe:2.3:a:{}:{}:*:*:*:*:*:*".format(orig['externalNamespace'], orig['externalId'])
+					pkg = "{}/{}@{}".format(orig['externalNamespace'], id[0], id[1])
 				elif len(id) == 3:
 					cpe = "cpe:2.3:a:{}:*:*:*:*:*:*".format(orig['externalId'])
+					pkg = "{}/{}@{}".format(id[0], id[1], id[2])
 			link = next((item for item in orig['_meta']['links'] if item["rel"] == "component-origin-copyrights"), None)
 			href = link['href'] + "?limit=100"
 			custom_headers = {'Accept':'application/vnd.blackducksoftware.copyright-4+json'}
@@ -282,8 +287,8 @@ def get_orig_data(comp):
 		else:
 			print("	INFO: No copyright data available due to no assigned origin")
 	except:
-		pass
-	return(copyrights, cpe)
+		print("except")
+	return(copyrights, cpe, pkg)
 
 def get_comments(comp):
 	# Get comments/annotations
@@ -329,17 +334,14 @@ def get_files(comp):
 def process_components(bom_components):
 	global packages, spdx
 
+	print("Processing {} components:".format(len(bom_components['items'])))
 	for bom_component in bom_components['items']:
-
-		#DEBUG
-# 		if 'jackson-datatype-joda' not in bom_component['componentName']:
-# 			continue
-
-		print(" - " + bom_component['componentName'] + "/" + bom_component['componentVersionName'])
 
 		if 'componentVersionName' not in bom_component.keys():
 			print("INFO: Skipping component {} which has no assigned version".format(bom_component['componentName']))
 			continue
+
+		print(" - " + bom_component['componentName'] + "/" + bom_component['componentVersionName'])
 
 		spdxpackage_name = clean("SPDXRef-Package-" + bom_component['componentName'] + "-" + bom_component['componentVersionName'])
 
@@ -371,8 +373,9 @@ def process_components(bom_components):
 
 		copyrights = "NOASSERTION"
 		cpe = "NOASSERTION"
+		pkg = "NOASSERTION"
 		if not args.no_copyrights:
-			copyrights, cpe = get_orig_data(bom_component)
+			copyrights, cpe, pkg = get_orig_data(bom_component)
 			copyrights = '<text>' + copyrights + '</text>'
 
 		package_file = "NOASSERTION"
@@ -393,6 +396,7 @@ def process_components(bom_components):
 				# PackageLicenseComments: <text>Other versions available for a commercial license</text>
 				# FilesAnalyzed: false
 				"ExternalRef: SECURITY cpe23Type {}".format(cpe),
+				"ExternalRef: PACKAGE-MANAGER purl pkg:" + pkg
 				# ExternalRef: PERSISTENT-ID swh swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2
 				# ExternalRef: OTHER LocationRef-acmeforge acmecorp/acmenator/4.1.3-alpha
 				# ExternalRefComment: This is the external ref for Acme
@@ -416,12 +420,11 @@ def process_components(bom_components):
 
 		packages.extend(this_package)
 
-print("Processing components:")
 process_components(bom_components)
 
 spdx += ['']
 spdx += packages
-spdx += ['## Custom Licenses' ]
+spdx += ['', '## Custom Licenses' ]
 spdx += spdx_custom_lics_text
 
 print("\nWriting SPDX output file {} ... ".format(args.output), end = '')
