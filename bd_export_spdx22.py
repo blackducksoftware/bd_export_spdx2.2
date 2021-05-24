@@ -234,7 +234,7 @@ def get_files(comp):
 
 
 def process_comp(comp):
-	global compsdict, bom_components
+	global output_dict, bom_components
 
 	bomentry = None
 	for match in bom_components['items']:
@@ -299,7 +299,7 @@ def process_comp(comp):
 
 
 def process_children(compverurl, child_url, indenttext):
-	global compsdict
+	global output_dict
 
 	res = hub.execute_get(child_url)
 	if res is None:
@@ -340,7 +340,7 @@ def process_children(compverurl, child_url, indenttext):
 
 
 def report_children(parentpackage, mtypes, children):
-	global compsdict, spdx_body
+	global output_dict, spdx_body
 
 	parentrels = []
 	ind = 0
@@ -596,9 +596,9 @@ if hierarchy.status_code != 200:
 
 # print(json.dumps(hierarchy.json(), indent=4, sort_keys=True))
 
-compsdict = dict()
-compsdict['TOPLEVEL'] = {}
-compsdict['TOPLEVEL']['children'] = []
+output_dict = dict()
+output_dict['TOPLEVEL'] = {}
+output_dict['TOPLEVEL']['children'] = []
 
 topchildren = []
 matchtypes = []
@@ -623,8 +623,8 @@ for component in hierarchy.json()['items']:
 	# if count > 5:  # DEBUG
 	# 	break
 
-compsdict['TOPLEVEL']['children'] = topchildren
-compsdict['TOPLEVEL']['matchtypes'] = matchtypes
+output_dict['TOPLEVEL']['children'] = topchildren
+output_dict['TOPLEVEL']['matchtypes'] = matchtypes
 
 spdx_body = []
 
@@ -655,15 +655,15 @@ spdx += [
 ]
 
 index = 0
-for compver in compsdict['TOPLEVEL']['children']:
-	matchtypes = compsdict['TOPLEVEL']['matchtypes'][index]
+for compver in output_dict['TOPLEVEL']['children']:
+	matchtypes = output_dict['TOPLEVEL']['matchtypes'][index]
 	for matchtype in matchtypes:
 		if matchtype in matchtype_dict.keys():
 			spdx.append("Relationship: " + toppackage + " " + matchtype_dict[matchtype] + " " +
-						compsdict[compver]['spdxname'])
+						output_dict[compver]['spdxname'])
 			break
 
-	compentry = compsdict[compver]
+	compentry = output_dict[compver]
 	spdx_body += compentry['spdx']
 	if 'children' in compentry and len(compentry['children']) > 0:
 		spdx_body += report_children(compentry['spdxname'], compentry['matchtypes'],

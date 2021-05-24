@@ -8,9 +8,7 @@ import os
 import re
 from lxml import html
 import requests
-# from zipfile import ZipFile
 
-# from blackduck.HubRestApi import HubInstance
 from blackduck import Client
 
 bd = Client(
@@ -24,8 +22,6 @@ script_version = "0.22 Beta"
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
-
-# hub = HubInstance()
 
 usage_dict = {
     "SOURCE_CODE": "CONTAINS",
@@ -122,13 +118,7 @@ args = parser.parse_args()
 
 
 def clean_for_spdx(name):
-    # remove_chars = [';', ':', '!', "*", "(", ")", "/", ","]
-    # for i in remove_chars:
-    # 	name = name.replace(i, '')
     newname = re.sub('[;:!*()/,]', '', name)
-    # replace_chars = [' ', '.']
-    # for i in replace_chars:
-    # 	name = name.replace(i, '-')
     newname = re.sub('[ .]', '', newname)
     return newname
 
@@ -137,13 +127,11 @@ def quote(name):
     remove_chars = ['"', "'"]
     for i in remove_chars:
         name = name.replace(i, '')
-    # return '"' + name + '"'
     return name
 
 
 def get_all_projects():
     global bd
-    # projs = hub.get_projects(5000)
     projs = bd.get_resource('projects', items=True)
 
     projlist = []
@@ -226,13 +214,9 @@ def get_licenses(lcomp):
                 try:
                     thislic = 'LicenseRef-' + clean_for_spdx(lic['licenseDisplay'])
                     lic_ref = lic['license'].split("/")[-1]
-                    # lic_url = hub.get_apibase() + '/api/licenses/' + lic_ref + '/text'
-                    # custom_headers = {'Accept': 'text/plain'}
-                    # resp = hub.execute_get(lic_url, custom_headers=custom_headers)
                     headers = {
                         'accept': "text/plain",
                     }
-                    # resp = bd.get_json(lic_url, headers=headers)
                     resp = bd.session.get('/api/licenses/' + lic_ref + '/text', headers=headers)
                     resp.raise_for_status()
 
@@ -256,44 +240,6 @@ def get_licenses(lcomp):
             lic_string = "(" + lic_string + ")"
 
     return lic_string
-
-
-spdx_origin_map = {
-    "alpine": {"p_type": "apk", "p_namespace": "alpine", "p_sep": "/"},
-    "android": {"p_type": "apk", "p_namespace": "android", "p_sep": ":"},
-    "bitbucket": {"p_type": "bitbucket", "p_namespace": "", "p_sep": ":"},
-    "bower": {"p_type": "bower", "p_namespace": "", "p_sep": "/"},
-    "centos": {"p_type": "rpm", "p_namespace": "centos", "p_sep": "/"},
-    "clearlinux": {"p_type": "rpm", "p_namespace": "clearlinux", "p_sep": "/"},
-    "cpan": {"p_type": "cpan", "p_namespace": "", "p_sep": "/"},
-    "cran": {"p_type": "cran", "p_namespace": "", "p_sep": "/"},
-    "crates": {"p_type": "cargo", "p_namespace": "", "p_sep": "/"},
-    "dart": {"p_type": "pub", "p_namespace": "", "p_sep": "/"},
-    "debian": {"p_type": "deb", "p_namespace": "debian", "p_sep": "/"},
-    "fedora": {"p_type": "rpm", "p_namespace": "fedora", "p_sep": "/"},
-    "gitcafe": {"p_type": "gitcafe", "p_namespace": "", "p_sep": ":"},
-    "github": {"p_type": "github", "p_namespace": "", "p_sep": ":"},
-    "gitlab": {"p_type": "gitlab", "p_namespace": "", "p_sep": ":"},
-    "gitorious": {"p_type": "gitorious", "p_namespace": "", "p_sep": ":"},
-    "golang": {"p_type": "golang", "p_namespace": "", "p_sep": ":"},
-    "hackage": {"p_type": "hackage", "p_namespace": "", "p_sep": "/"},
-    "hex": {"p_type": "hex", "p_namespace": "", "p_sep": "/"},
-    "maven": {"p_type": "maven", "p_namespace": "", "p_sep": ":"},
-    "mongodb": {"p_type": "rpm", "p_namespace": "mongodb", "p_sep": "/"},
-    "npmjs": {"p_type": "npm", "p_namespace": "", "p_sep": "/"},
-    "nuget": {"p_type": "nuget", "p_namespace": "", "p_sep": "/"},
-    "opensuse": {"p_type": "rpm", "p_namespace": "opensuse", "p_sep": "/"},
-    "oracle_linux": {"p_type": "rpm", "p_namespace": "oracle", "p_sep": "/"},
-    "packagist": {"p_type": "composer", "p_namespace": "", "p_sep": ":"},
-    "pear": {"p_type": "pear", "p_namespace": "", "p_sep": "/"},
-    "photon": {"p_type": "rpm", "p_namespace": "photon", "p_sep": "/"},
-    "pypi": {"p_type": "pypi", "p_namespace": "", "p_sep": "/"},
-    "redhat": {"p_type": "rpm", "p_namespace": "redhat", "p_sep": "/"},
-    "ros": {"p_type": "deb", "p_namespace": "ros", "p_sep": "/"},
-    "rubygems": {"p_type": "gem", "p_namespace": "", "p_sep": "/"},
-    "ubuntu": {"p_type": "deb", "p_namespace": "ubuntu", "p_sep": "/"},
-    "yocto": {"p_type": "yocto", "p_namespace": "", "p_sep": "/"},
-}
 
 
 # 1. translate external_namespace to purl_type [and optionally, purl_namespace]
@@ -330,7 +276,42 @@ spdx_origin_map = {
 #     purl += "#{:subpath}"
 
 def calculate_purl(namespace, extid):
-    global spdx_origin_map
+    spdx_origin_map = {
+        "alpine": {"p_type": "apk", "p_namespace": "alpine", "p_sep": "/"},
+        "android": {"p_type": "apk", "p_namespace": "android", "p_sep": ":"},
+        "bitbucket": {"p_type": "bitbucket", "p_namespace": "", "p_sep": ":"},
+        "bower": {"p_type": "bower", "p_namespace": "", "p_sep": "/"},
+        "centos": {"p_type": "rpm", "p_namespace": "centos", "p_sep": "/"},
+        "clearlinux": {"p_type": "rpm", "p_namespace": "clearlinux", "p_sep": "/"},
+        "cpan": {"p_type": "cpan", "p_namespace": "", "p_sep": "/"},
+        "cran": {"p_type": "cran", "p_namespace": "", "p_sep": "/"},
+        "crates": {"p_type": "cargo", "p_namespace": "", "p_sep": "/"},
+        "dart": {"p_type": "pub", "p_namespace": "", "p_sep": "/"},
+        "debian": {"p_type": "deb", "p_namespace": "debian", "p_sep": "/"},
+        "fedora": {"p_type": "rpm", "p_namespace": "fedora", "p_sep": "/"},
+        "gitcafe": {"p_type": "gitcafe", "p_namespace": "", "p_sep": ":"},
+        "github": {"p_type": "github", "p_namespace": "", "p_sep": ":"},
+        "gitlab": {"p_type": "gitlab", "p_namespace": "", "p_sep": ":"},
+        "gitorious": {"p_type": "gitorious", "p_namespace": "", "p_sep": ":"},
+        "golang": {"p_type": "golang", "p_namespace": "", "p_sep": ":"},
+        "hackage": {"p_type": "hackage", "p_namespace": "", "p_sep": "/"},
+        "hex": {"p_type": "hex", "p_namespace": "", "p_sep": "/"},
+        "maven": {"p_type": "maven", "p_namespace": "", "p_sep": ":"},
+        "mongodb": {"p_type": "rpm", "p_namespace": "mongodb", "p_sep": "/"},
+        "npmjs": {"p_type": "npm", "p_namespace": "", "p_sep": "/"},
+        "nuget": {"p_type": "nuget", "p_namespace": "", "p_sep": "/"},
+        "opensuse": {"p_type": "rpm", "p_namespace": "opensuse", "p_sep": "/"},
+        "oracle_linux": {"p_type": "rpm", "p_namespace": "oracle", "p_sep": "/"},
+        "packagist": {"p_type": "composer", "p_namespace": "", "p_sep": ":"},
+        "pear": {"p_type": "pear", "p_namespace": "", "p_sep": "/"},
+        "photon": {"p_type": "rpm", "p_namespace": "photon", "p_sep": "/"},
+        "pypi": {"p_type": "pypi", "p_namespace": "", "p_sep": "/"},
+        "redhat": {"p_type": "rpm", "p_namespace": "redhat", "p_sep": "/"},
+        "ros": {"p_type": "deb", "p_namespace": "ros", "p_sep": "/"},
+        "rubygems": {"p_type": "gem", "p_namespace": "", "p_sep": "/"},
+        "ubuntu": {"p_type": "deb", "p_namespace": "ubuntu", "p_sep": "/"},
+        "yocto": {"p_type": "yocto", "p_namespace": "", "p_sep": "/"},
+    }
 
     if namespace in spdx_origin_map.keys():
         ns_split = extid.split(spdx_origin_map[namespace]['p_sep'])
@@ -383,10 +364,10 @@ def get_orig_data(dcomp):
             if 'externalNamespace' in orig.keys() and 'externalId' in orig.keys():
                 pkg = calculate_purl(orig['externalNamespace'], orig['externalId'])
 
+
+
             link = next((item for item in orig['_meta']['links'] if item["rel"] == "component-origin-copyrights"), None)
             thishref = link['href'] + "?limit=100"
-            # custom_headers = {'Accept': 'application/vnd.blackducksoftware.copyright-4+json'}
-            # resp = hub.execute_get(thishref, custom_headers=custom_headers)
             headers = {
                 'accept': "application/vnd.blackducksoftware.copyright-4+json",
             }
@@ -412,77 +393,72 @@ def get_orig_data(dcomp):
 def get_comments(ccomp):
     # Get comments/annotations
     annotations = []
-    try:
-        hrefs = ccomp['_meta']['links']
+    hrefs = ccomp['_meta']['links']
 
-        link = next((item for item in hrefs if item["rel"] == "comments"), None)
-        if link:
-            thishref = link['href']
-            # custom_headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
-            # resp = hub.execute_get(thishref, custom_headers=custom_headers)
-            headers = {
-                'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
-            }
-            resp = bd.get_json(thishref, headers=headers)
-            mytime = datetime.datetime.now()
-            mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            for comment in resp['items']:
-                annotations.append(
-                    {
-                        "annotationDate": quote(mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")),
-                        "annotationType": "OTHER",
-                        "annotator": quote("Person: " + comment['user']['email']),
-                        "comment": quote(comment['comment']),
-                    }
-                )
-    except Exception as exc:
-        pass
+    link = next((item for item in hrefs if item["rel"] == "comments"), None)
+    if link:
+        thishref = link['href']
+        headers = {
+            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+        }
+        resp = bd.get_json(thishref, headers=headers)
+        mytime = datetime.datetime.now()
+        mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        for comment in resp['items']:
+            annotations.append(
+                {
+                    "annotationDate": quote(mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")),
+                    "annotationType": "OTHER",
+                    "annotator": quote("Person: " + comment['user']['email']),
+                    "comment": quote(comment['comment']),
+                }
+            )
     return annotations
 
 
 def get_files(fcomp):
     # Get files
     retfile = "NOASSERTION"
-    try:
-        hrefs = fcomp['_meta']['links']
+    hrefs = fcomp['_meta']['links']
 
-        link = next((item for item in hrefs if item["rel"] == "matched-files"), None)
-        if link:
-            thishref = link['href']
-            # custom_headers = {'Accept': 'application/vnd.blackducksoftware.bill-of-materials-6+json'}
-            # resp = hub.execute_get(thishref, custom_headers=custom_headers)
-            headers = {
-                'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
-            }
-            resp = bd.get_json(thishref, headers=headers)
+    link = next((item for item in hrefs if item["rel"] == "matched-files"), None)
+    if link:
+        thishref = link['href']
+        headers = {
+            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+        }
+        resp = bd.get_json(thishref, headers=headers)
 
-            cfile = resp['items']
-            if len(cfile) > 0:
-                retfile = cfile[0]['filePath']['path']
-    except Exception as exc:
-        pass
-    return retfile
+        cfile = resp['items']
+        if len(cfile) > 0:
+            retfile = cfile[0]['filePath']['path']
+
+    for ext in ['.jar', '.ear', '.war', '.zip', '.gz', '.tar', '.xz', '.lz', '.bz2', '.7z', '.rar', '.rar', \
+        '.cpio', '.Z', '.lz4', '.lha', '.arj', '.rpm', '.deb', '.dmg', '.gz', '.whl']:
+        if retfile.endswith(ext):
+            return retfile
+    return 'NOASSERTION'
 
 
 def process_comp(tcomp):
-    global output_dict
+    # global output_dict
     global bom_components
     global bom_comp_dict
     global spdx_custom_lics
+    global spdx
+    global processed_comp_list
 
     cver = tcomp['componentVersion']
-    if cver in compdict.keys():
+    if cver in bom_comp_dict.keys():
         # ind = compverlist.index(tcomp['componentVersion'])
-        bomentry = compdict[cver]
+        bomentry = bom_comp_dict[cver]
     else:
         bomentry = tcomp
 
-    # for match in bom_components['items']:
-    # 	if match['componentVersion'] == comp['componentVersion']:
-    # 		bomentry = match
-    # 		break
+    spdxpackage_name = clean_for_spdx(
+        "SPDXRef-Package-" + tcomp['componentName'] + "-" + tcomp['componentVersionName'])
 
-    if cver not in output_dict.keys():
+    if cver not in processed_comp_list:
         download_url = "NOASSERTION"
 
         if args.download_loc:
@@ -504,15 +480,10 @@ def process_comp(tcomp):
         if 'description' in tcomp.keys():
             desc = re.sub('[^a-zA-Z.()\d\s\-:]', '', bomentry['description'])
 
-        output_dict[cver] = {}
-
         annotations = get_comments(bomentry)
         lic_string = get_licenses(bomentry)
 
-        spdxpackage_name = clean_for_spdx(
-            "SPDXRef-Package-" + tcomp['componentName'] + "-" + tcomp['componentVersionName'])
-        output_dict[cver]['spdxname'] = spdxpackage_name
-        output_dict[cver]['spdxentry'] = {
+        thisdict = {
             "SPDXID": quote(spdxpackage_name),
             "name": quote(tcomp['componentName']),
             "versionInfo": quote(tcomp['componentVersionName']),
@@ -534,53 +505,133 @@ def process_comp(tcomp):
         }
 
         if pkg != '':
-            output_dict[cver]['spdxentry']["externalRefs"] = [
+            thisdict["externalRefs"] = [
                 {
                     "referenceLocator": pkg,
                     "referenceCategory": "OTHER",
                 }
             ]
 
+        spdx['packages'].append(thisdict)
+    return spdxpackage_name
 
-def process_children(compverurl, child_url, indenttext):
-    global output_dict
+
+def process_children(pkgname, compverurl, child_url, indenttext):
     global spdx_custom_lics
 
-    # res = hub.execute_get(child_url)
-    # if res is None:
-    #     print("Cannot get children")
-    #     sys.exit(1)
     res = bd.get_json(child_url)
 
-    children = []
-    thismatchtypes = []
-
-    if compverurl not in output_dict.keys():
-        output_dict[compverurl] = {}
-
-    # print(res.json())
     for child in res['items']:
         if 'componentName' in child and 'componentVersionName' in child:
             print("{}{}/{}".format(indenttext, child['componentName'], child['componentVersionName']))
-            children.append(child['componentVersion'])
-            thismatchtypes.append(child['matchTypes'])
         else:
             # No version - skip
             print("{}{}/{} (SKIPPED)".format(indenttext, child['componentName'], '?'))
             continue
 
-        process_comp(child)
+        childpkgname = process_comp(child)
+        if childpkgname != '':
+            reln = False
+            for tchecktype in matchtype_depends_dict.keys():
+                if tchecktype in child['matchTypes']:
+                    add_relationship(pkgname, childpkgname, matchtype_depends_dict[tchecktype])
+                    reln = True
+                    break
+            if not reln:
+                for tchecktype in matchtype_contains_dict.keys():
+                    if tchecktype in child['matchTypes']:
+                        add_relationship(pkgname, childpkgname,
+                                         matchtype_contains_dict[tchecktype])
+                        break
+            processed_comp_list.append(child)
 
         if len(child['_meta']['links']) > 2:
             thisref = [d['href'] for d in child['_meta']['links'] if d['rel'] == 'children']
-            process_children(child['componentVersion'], thisref[0], "    " + indenttext)
+            process_children(childpkgname, child['componentVersion'], thisref[0], "    " + indenttext)
 
-    if 'children' in output_dict[compverurl].keys():
-        output_dict[compverurl]['children'].extend(children)
-        output_dict[compverurl]['matchtypes'].extend(thismatchtypes)
-    else:
-        output_dict[compverurl]['children'] = children
-        output_dict[compverurl]['matchtypes'] = thismatchtypes
+    return
+
+
+def process_comp_relationship(parentname, childname, mtypes):
+    global matchtype_depends_dict
+
+    reln = False
+    for tchecktype in matchtype_depends_dict.keys():
+        if tchecktype in mtypes:
+            add_relationship(parentname, childname, matchtype_depends_dict[tchecktype])
+            reln = True
+            break
+    if not reln:
+        for tchecktype in matchtype_contains_dict.keys():
+            if tchecktype in mtypes:
+                add_relationship(parentname, childname, matchtype_contains_dict[tchecktype])
+                break
+
+
+def process_project(projspdxname, hcomps, bom):
+    global proj_list
+    global spdx
+    global spdx_custom_lics
+
+    #
+    # Process hierarchical BOM elements
+    for hcomp in hcomps:
+        if 'componentVersionName' in hcomp:
+            print("{}/{}".format(hcomp['componentName'], hcomp['componentVersionName']))
+        else:
+            print("{}/? - (no version - skipping)".format(hcomp['componentName']))
+            continue
+
+        pkgname = process_comp(hcomp)
+
+        if pkgname != '':
+            process_comp_relationship(projspdxname, pkgname, hcomp['matchTypes'])
+            processed_comp_list.append(hcomp['componentVersion'])
+
+            href = [d['href'] for d in hcomp['_meta']['links'] if d['rel'] == 'children']
+            if len(href) > 0:
+                process_children(pkgname, hcomp['componentVersion'], href[0], "--> ")
+
+    #
+    # Process all entries to find manual entries (not in hierarchical BOM) and sub-projects
+    for bom_component in bom:
+
+        # Check if this component is a sub-project
+        if bom_component['matchTypes'][0] == "MANUAL_BOM_COMPONENT":
+            if 'componentVersionName' not in bom_component.keys():
+                print(
+                    "INFO: Skipping component {} which has no assigned version".format(bom_component['componentName']))
+                continue
+            else:
+                print("{}/{}".format(bom_component['componentName'], bom_component['componentVersionName']))
+
+            print(bom_component['componentName'] + "/" + bom_component['componentVersionName'])
+            pkgname = process_comp(bom_component)
+
+            process_comp_relationship(projspdxname, pkgname, bom_component['matchTypes'])
+
+            if args.recursive and bom_component['componentName'] in proj_list:
+                params = {
+                    'q': "name:" + bom_component['componentName'],
+                }
+                sub_projects = bd.get_resource('projects', params=params)
+                for sub_proj in sub_projects:
+                    params = {
+                        'q': "versionName:" + bom_component['componentVersionName'],
+                    }
+                    sub_versions = bd.get_resource('versions', parent=sub_proj, params=params)
+                    for sub_ver in sub_versions:
+                        print("Processing project within project '{}'".format(
+                            bom_component['componentName'] + '/' + bom_component['componentVersionName']))
+
+                        sub_comps = bd.get_resource('components', parent=sub_ver)
+                        sub_hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
+
+                        subprojspdxname = clean_for_spdx(bom_component['componentName'] + '/' +
+                                                         bom_component['componentVersionName'])
+
+                        process_project(subprojspdxname, sub_hierarchical_bom, sub_comps)
+
 
     return
 
@@ -621,119 +672,6 @@ def add_snippet():
     pass
 
 
-def report_children(parentverurl, parentpackage, mtypes, children):
-    global output_dict
-    global spdx
-    global processed_list
-
-    for child in children:
-        reln = False
-        for tchecktype in matchtype_depends_dict.keys():
-            if tchecktype in mtypes:
-                add_relationship(parentpackage, output_dict[child]['spdxname'], matchtype_depends_dict[tchecktype])
-                reln = True
-                break
-        if not reln:
-            for tchecktype in matchtype_contains_dict.keys():
-                if tchecktype in mtypes:
-                    add_relationship(parentpackage, output_dict[child]['spdxname'],
-                                     matchtype_contains_dict[tchecktype])
-                    break
-        # compver = child['componentVersion']
-        processed_list.append(child)
-
-        centry = output_dict[child]
-        spdx['packages'].append(centry['spdxentry'])
-        if child not in processed_list:
-            if 'children' in centry:
-                report_children(child, centry['spdxname'], centry['matchtypes'], centry['children'])
-
-
-def process_project(hcomps, bom):
-    global topchildren
-    global matchtypes
-    global proj_list
-    global spdx
-    global spdx_custom_lics
-
-    children = []
-    childmatchtypes = []
-
-    #
-    # Process hierarchical BOM elements
-    for hcomp in hcomps:
-        if 'componentVersionName' in hcomp:
-            print("{}/{}".format(hcomp['componentName'], hcomp['componentVersionName']))
-        else:
-            print("{}/? - (no version - skipping)".format(hcomp['componentName']))
-            continue
-
-        process_comp(hcomp)
-
-        href = [d['href'] for d in hcomp['_meta']['links'] if d['rel'] == 'children']
-        if len(href) > 0:
-            process_children(hcomp['componentVersion'], href[0], "--> ")
-
-        children.append(hcomp['componentVersion'])
-        childmatchtypes.append(hcomp['matchTypes'])
-
-    #
-    # Process all entries to find manual entries (not in hierarchical BOM) and sub-projects
-    for bom_component in bom:
-
-        # First check if this component is a sub-project
-        if bom_component['matchTypes'][0] == "MANUAL_BOM_COMPONENT":
-            if 'componentVersionName' not in bom_component.keys():
-                print(
-                    "INFO: Skipping component {} which has no assigned version".format(bom_component['componentName']))
-                continue
-
-            # spdxpackage_name = clean(
-            # 	"SPDXRef-Package-" + bom_component['componentName'] + "-" + bom_component['componentVersionName'])
-
-            print(bom_component['componentName'] + "/" + bom_component['componentVersionName'])
-            process_comp(bom_component)
-            children.append(bom_component['componentVersion'])
-            childmatchtypes.append(bom_component['matchTypes'])
-
-            if args.recursive and bom_component['componentName'] in proj_list:
-                # sub_project = hub.get_project_by_name(bom_component['componentName'])
-                done = False
-                params = {
-                    'q': "name:" + bom_component['componentName'],
-                }
-                sub_projects = bd.get_resource('projects', params=params)
-                for sub_proj in sub_projects:
-                    params = {
-                        'q': "versionName:" + bom_component['componentVersionName'],
-                    }
-                    # sub_version = hub.get_version_by_name(sub_project, bom_component['componentVersionName'])
-                    sub_versions = bd.get_resource('versions', parent=sub_proj, params=params)
-                    for sub_ver in sub_versions:
-                        print("Processing project within project '{}'".format(
-                            bom_component['componentName'] + '/' + bom_component['componentVersionName']))
-                        done = True
-                        # sub_bom_components = hub.get_version_components(sub_version, 5000)
-                        # sub_version_url = sub_version['_meta']['href']
-                        # sub_hierarchy_url = sub_version_url + "/hierarchical-components?limit=5000"
-                        # res = hub.execute_get(sub_hierarchy_url)
-                        sub_comps = bd.get_resource('components', parent=sub_ver)
-                        sub_hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
-
-                        # subprojchildren, subprojmatchtypes = process_project(
-                        #     res.json()['items'], sub_bom_components['items'])
-                        subprojchildren, subprojmatchtypes = process_project(sub_hierarchical_bom, sub_comps)
-                        if bom_component['componentVersion'] in output_dict.keys() and \
-                                'children' in output_dict[bom_component['componentVersion']]:
-                            output_dict[bom_component['componentVersion']]['children'].extend(subprojchildren)
-                            output_dict[bom_component['componentVersion']]['matchtypes'].extend(subprojmatchtypes)
-                        else:
-                            output_dict[bom_component['componentVersion']]['children'] = subprojchildren
-                            output_dict[bom_component['componentVersion']]['matchtypes'] = subprojmatchtypes
-
-    return children, childmatchtypes
-
-
 def add_relationship(parent, child, reln):
     global spdx
 
@@ -763,16 +701,15 @@ def check_params():
         backup_file(args.output)
 
 
-def check_projver(args):
+def check_projver(pargs):
     params = {
-        'q': "name:" + args.project_name,
+        'q': "name:" + pargs.project_name,
         'sort': 'name',
     }
-    # project = hub.get_project_by_name(args.project_name)
     projects = bd.get_resource('projects', params=params, items=False)
 
     if projects['totalCount'] == 0:
-        print("Project '{}' does not exist".format(args.project_name))
+        print("Project '{}' does not exist".format(pargs.project_name))
         print('Available projects:')
         projects = bd.get_resource('projects')
         for proj in projects:
@@ -780,14 +717,25 @@ def check_projver(args):
         sys.exit(2)
 
     projects = bd.get_resource('projects', params=params)
-    # version = hub.get_version_by_name(project, args.project_version)
     for proj in projects:
         versions = bd.get_resource('versions', parent=proj, params=params)
         for ver in versions:
-            if ver['versionName'] == args.project_version:
+            if ver['versionName'] == pargs.project_version:
                 return proj, ver
-    print("Version '{}' does not exist in project '{}'".format(args.project_name, args.project_version))
+    print("Version '{}' does not exist in project '{}'".format(pargs.project_name, pargs.project_version))
     sys.exit(2)
+
+
+def get_bom_components(ver):
+    global bom_comp_dict
+
+    bom_comps = bd.get_resource('components', parent=ver)
+    bom_comp_dict = {}
+    for comp in bom_comps:
+        compver = comp['componentVersion']
+        bom_comp_dict[compver] = comp
+
+    return bom_comps
 
 
 print("BLACK DUCK SPDX EXPORT SCRIPT VERSION {}\n".format(script_version))
@@ -800,15 +748,8 @@ print("Working on project '{}' version '{}'\n".format(project['name'], version['
 if args.recursive:
     proj_list = get_all_projects()
 
-bom_components = bd.get_resource('components', parent=version)
-# compverlist = []
 bom_comp_dict = {}
-for comp in bom_components:
-    compver = comp['componentVersion']
-    # compverlist.append(compver)
-    bom_comp_dict[compver] = comp
-
-# process_components(bom_components)
+bom_components = get_bom_components(version)
 
 #######################################################################################################################
 #
@@ -820,25 +761,16 @@ for comp in bom_components:
 #     logging.error("Failed to retrieve hierarchy, status code: {}".format(hierarchy.status_code))
 #     exit()
 
-output_dict = dict()
+# output_dict = dict()
 # output_compsdict entries look like this:
 # 'spdx': SPDX record
 # 'spdxname': SPDX record name
 # 'children': List of projver URLs which are children
 # 'matchtypes': List of lists of scan match types for children
 
-output_dict['TOPLEVEL'] = {}
-output_dict['TOPLEVEL']['children'] = []
+# output_dict['TOPLEVEL'] = {}
+# output_dict['TOPLEVEL']['children'] = []
 spdx_custom_lics = []
-
-if 'hierarchical-components' in bd.list_resources(version):
-    hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
-
-    print('Getting Component Hierarchy:')
-    topchildren, matchtypes = process_project(hierarchical_bom, bom_components)
-
-    output_dict['TOPLEVEL']['children'] = topchildren
-    output_dict['TOPLEVEL']['matchtypes'] = matchtypes
 
 toppackage = clean_for_spdx("SPDXRef-Package-" + project['name'] + "-" + version['versionName'])
 
@@ -854,13 +786,11 @@ if 'description' in project.keys():
     spdx["creationInfo"]["comment"] = quote(project['description'])
 spdx["name"] = quote(project['name'] + '/' + version['versionName'])
 spdx["dataLicense"] = "CC0-1.0"
-# spdx["DocumentNamespace"] = '"' + version['_meta']['href'] + '"'
 spdx["documentDescribes"] = [toppackage]
 add_relationship("SPDXRef-DOCUMENT", toppackage, "DESCRIBES")
 
-
 # Add top package for project version
-
+#
 projpkg = {
     "SPDXID": quote(toppackage),
     "name": quote(project['name']),
@@ -886,39 +816,13 @@ if 'license' in version.keys():
     projpkg["licenseDeclared"] = version['license']['licenseDisplay']
 spdx['packages'].append(projpkg)
 
-#
-# Walk the compsdict tree to report SPDX entities
-print('\nProcessing component tree ...', end='')
-processed_list = []
-index = 0
-for compver in output_dict['TOPLEVEL']['children']:
-    matchtypes = output_dict['TOPLEVEL']['matchtypes'][index]
+processed_comp_list = []
 
-    rel = False
-    for checktype in matchtype_depends_dict.keys():
-        if checktype in matchtypes:
-            add_relationship(toppackage, output_dict[compver]['spdxname'], matchtype_depends_dict[checktype])
-            rel = True
-            break
-    if not rel:
-        for checktype in matchtype_contains_dict.keys():
-            if checktype in matchtypes:
-                add_relationship(toppackage, output_dict[compver]['spdxname'], matchtype_contains_dict[checktype])
-                break
+if 'hierarchical-components' in bd.list_resources(version):
+    hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
 
-    processed_list.append(compver)
-
-    compentry = output_dict[compver]
-    spdx['packages'].append(compentry['spdxentry'])
-    # if compver not in processed_list:
-    if 'children' in compentry and len(compentry['children']) > 0:
-        report_children(compver, compentry['spdxname'], compentry['matchtypes'], compentry['children'])
-
-    index += 1
-#
-# if len(spdx_custom_lics_text) > 0:
-# 	spdx.append('## Custom Licenses')
-# 	spdx += spdx_custom_lics_text
+    print('Getting Component Hierarchy:')
+    process_project(toppackage, hierarchical_bom, bom_components)
 
 print("Done\n\nWriting SPDX output file {} ... ".format(args.output), end='')
 
