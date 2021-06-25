@@ -1,19 +1,19 @@
-# Synopsys Black Duck - bd_export_spdx22.py
+# Synopsys Black Duck - bd_export_spdx22_json.py
 # OVERVIEW
 
-This script is provided under an OSS license (specified in the LICENSE file) to allow users to export an SPDX version 2.2 tag-value file from Black Duck projects.
+This script is provided under an OSS license (specified in the LICENSE file) to allow users to export SPDX version 2.2 in JSON format from Black Duck projects.
 
 It does not represent any extension of licensed functionality of Synopsys software itself and is provided as-is, without warranty or liability.
 
 # DESCRIPTION
 
-The script is designed to export an SPDX version 2.2 tag-value file from a Black Duck project.
+The script is designed to export SPDX version 2.2 in JSON format from a Black Duck project.
 
-It relies on the `hub-rest-api-python` package to access the Black Duck APIs (see prerequisites below to install and configure this package).
+It relies on the Black Duck `hub-rest-api-python` package to access the Black Duck APIs (see prerequisites below to install and configure this package).
 
 The project name and version need to be specified. If the project name is not matched in the server then the list of projects matching the supplied project string will be displayed (and the script will terminate). If the version name is not matched for the specified project, then the list of all versions will be displayed  (and the script will terminate).
 
-The output file in SPDX tag-value format can optionally be specified; the project name and version name with .spdx extension will be used for the default filename if nor specified. If the output file already exists, it will be renamed using a numeric extension (for example `.001`).
+The output file in SPDX JSON format can optionally be specified; the project name and version name with .json extension will be used for the default filename if nor specified. If the output file already exists, it will be renamed using a numeric extension (for example `.001`).
 
 The optional `--recursive` option will traverse sub-projects to include all leaf components. If not specified, and sub-projects exist in the specified project, then the sub-projects will be skipped.
 
@@ -27,59 +27,54 @@ Other options can be specified to reduce the number of API calls to speed up scr
 
        pip install blackduck lxml
 
-1. An API key for the Black Duck server must be configured within the `.restconfig.json` file in the script invocation folder - see the `CONFIG FILE` section below.
+1. Set the BLACKDUCK_URL and BLACKDUCK_API_TOKEN environment variables to connect to the Black Duck server.
 
-# CONFIG FILE
-
-Configure the Black Duck connection within the `.restconfig.json` file in the script invocation folder - example contents:
-
-    {
-      "baseurl": "https://myhub.blackducksoftware.com",
-      "api_token": "YWZkOTE5NGYtNzUxYS00NDFmLWJjNzItYmYwY2VlNDIxYzUwOmE4NjNlNmEzLWRlNTItNGFiMC04YTYwLWRBBWQ2MDFXXjA0Mg==",
-      "insecure": true,
-      "debug": false
-    }
 
 # USAGE
 
-The `bd_export_spdx22.py` script can be invoked as follows:
+The `bd_export_spdx22_json.py` script can be invoked as follows:
 
-       Usage: export_spdx22.py [-h] [-o OUTPUT] [-r] [--no_downloads] [--no_copyrights]
-                      [--no_files] [-b]
-                      project_name version
+usage: bd_export_spdx22_json.py [-h] [-v] [-o OUTPUT] [-r] [--download_loc] [--no_copyrights] [--no_files] [-b] [--blackduck_url BLACKDUCK_URL]
+                                [--blackduck_api_token BLACKDUCK_API_TOKEN] [--blackduck_trust_certs]
+                                project_name project_version
 
-       "Export SPDX for the given project and version"
+"Export SPDX JSON format file for the given project and version"
 
-       Positional arguments:
+       positional arguments:
          project_name          Black Duck project name
-         version               Black Duck version name
+         project_version       Black Duck version name
 
-       Optional arguments:
-         -h, --help            Show this help message and exit
-         -v, --version         Print script version and exit 
+       optional arguments:
+         -h, --help            show this help message and exit
+         -v, --version         Print script version and exit
          -o OUTPUT, --output OUTPUT
-                               Output SPDX file name (SPDX tag format) - default
-                               '<proj>-<ver>.spdx'
+                               Output SPDX file name (SPDX JSON format) - default '<proj>-<ver>.json'
          -r, --recursive       Scan sub-projects within projects (default = false)
-         --no_downloads        Do not identify component download link extracted from
-                               Openhub (speeds up processing - default=false)
-         --no_copyrights       Do not export copyright data for components (speeds up
-                               processing - default=false)
-         --no_files            Do not export file data for components (speeds up
-                               processing - default=false)
-         -b, --basic           Do not export copyright, download link or package file
-                               data (speeds up processing - same as using '--
-                               no_downloads --no_copyrights --no_files')
+         --download_loc        Attempt to identify component download link extracted from Openhub (slows down processing - default=false)
+         --no_copyrights       Do not export copyright data for components (speeds up processing - default=false)
+         --no_files            Do not export file data for components (speeds up processing - default=false)
+         -b, --basic           Do not export copyright, download link or package file data (speeds up processing - same as using "--no_copyrights --no_files")
+         --blackduck_url BLACKDUCK_URL
+                               BLACKDUCK_URL
+         --blackduck_api_token BLACKDUCK_API_TOKEN
+                               BLACKDUCK_API_TOKEN
+         --blackduck_trust_certs
+                               BLACKDUCK trust certs
+
 
 If `project_name` does not match a single project then all matching projects will be listed and the script will terminate.
 
 If `version` does not match a single project version then all matching versions will be listed and the script will terminate.
 
+The script will use the environment variables BLACKDUCK_URL and BLACKDUCK_API_TOKEN if they are set. Alternatively use the options `--blackduck_url` and `--blackduck_api_token` to specify them on the command line.
+
+Use the `--blackduck_trust_certs` option to trust the SSL certificate on the Black Duck server if unsigned.
+
 The `--output out_file` or `-o out_file` option specifies the output file. If this file already exists, the previous version will be renamed with a unique number (e.g. .001). The default file name `<project>-<version>.spdx` will be used if not specified.
 
 The `--recursive` or `-r` option will cause Black Duck sub-projects to be processed, adding the components of sub-projects to the overall SPDX output file. If the processed project version contains sub-projects and this option is not specified, they will be ignored.
 
-The `--no_downloads` option will stop the processing of component download locations from Openhub.net (PackageDownloadLocation tag), reducing the number of API calls and time to complete the script.
+The `--download_loc` option will try to extract component download locations from Openhub.net (PackageDownloadLocation tag), increasing the number of API calls and time to complete the script.
 
 The `--no_copyrights` option will stop the processing of component copyright text (PackageCopyrightText tag) reducing the number of API calls and time to complete the script.
 
