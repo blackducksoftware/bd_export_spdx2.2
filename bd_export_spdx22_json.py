@@ -109,7 +109,7 @@ parser.add_argument("-b", "--basic",
                     action='store_true')
 parser.add_argument("--blackduck_url", type=str, help="BLACKDUCK_URL", default="")
 parser.add_argument("--blackduck_api_token", type=str, help="BLACKDUCK_API_TOKEN", default="")
-parser.add_argument("--blackduck_trust_certs", help="BLACKDUCK trust certs", action='store_false')
+parser.add_argument("--blackduck_trust_certs", help="BLACKDUCK trust certs", action='store_true')
 
 args = parser.parse_args()
 
