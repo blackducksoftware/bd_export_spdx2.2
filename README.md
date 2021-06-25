@@ -21,24 +21,25 @@ Other options can be specified to reduce the number of API calls to speed up scr
 
 # PREREQUISITES
 
-1. Python 3 must be installed.
+1. Pip 3 must be installed.
 
-1. Install the following packages in the virtualenv:
+1. Set the BLACKDUCK_URL and BLACKDUCK_API_TOKEN environment variables to connect to the Black Duck server (alternatively use the `--blackduck_url` and `--blackduck_api_token` options)
 
-       pip install blackduck lxml
+# INSTALLATION
 
-1. Set the BLACKDUCK_URL and BLACKDUCK_API_TOKEN environment variables to connect to the Black Duck server.
+Install the package using the command:
 
+        pip3 install -i https://test.pypi.org/simple/ bd-export-spdx2.2
 
 # USAGE
 
-The `bd_export_spdx22_json.py` script can be invoked as follows:
+The program can be invoked as follows:
 
-usage: bd_export_spdx22_json.py [-h] [-v] [-o OUTPUT] [-r] [--download_loc] [--no_copyrights] [--no_files] [-b] [--blackduck_url BLACKDUCK_URL]
-                                [--blackduck_api_token BLACKDUCK_API_TOKEN] [--blackduck_trust_certs]
-                                project_name project_version
+       usage: bd_export_spdx [-h] [-v] [-o OUTPUT] [-r] [--download_loc] [--no_copyrights] [--no_files] [-b] [--blackduck_url BLACKDUCK_URL]
+                               [--blackduck_api_token BLACKDUCK_API_TOKEN] [--blackduck_trust_certs]
+                               project_name project_version
 
-"Export SPDX JSON format file for the given project and version"
+       "Export SPDX JSON format file for the given project and version"
 
        positional arguments:
          project_name          Black Duck project name
@@ -55,11 +56,11 @@ usage: bd_export_spdx22_json.py [-h] [-v] [-o OUTPUT] [-r] [--download_loc] [--n
          --no_files            Do not export file data for components (speeds up processing - default=false)
          -b, --basic           Do not export copyright, download link or package file data (speeds up processing - same as using "--no_copyrights --no_files")
          --blackduck_url BLACKDUCK_URL
-                               BLACKDUCK_URL
+                               Black Duck server URL including https://
          --blackduck_api_token BLACKDUCK_API_TOKEN
-                               BLACKDUCK_API_TOKEN
+                               Black Duck API token
          --blackduck_trust_certs
-                               BLACKDUCK trust certs
+                               Trust Black Duck server certificates if unsigned
 
 
 If `project_name` does not match a single project then all matching projects will be listed and the script will terminate.

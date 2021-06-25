@@ -11,7 +11,7 @@ import requests
 
 from blackduck import Client
 
-script_version = "0.4 Beta"
+script_version = "0.6 Beta"
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -138,6 +138,8 @@ bd = Client(
     base_url=url,
     verify=verify  # TLS certificate verification
 )
+
+processed_comp_list = []
 
 
 def clean_for_spdx(name):
@@ -790,101 +792,110 @@ def get_bom_components(ver):
     return bom_comps
 
 
-print("BLACK DUCK SPDX EXPORT SCRIPT VERSION {}\n".format(script_version))
+def run():
+    global spdx
+    global args
+    global processed_comp_list
 
-check_params()
+    print("BLACK DUCK SPDX EXPORT SCRIPT VERSION {}\n".format(script_version))
 
-project, version = check_projver(args)
-print("Working on project '{}' version '{}'\n".format(project['name'], version['versionName']))
+    check_params()
 
-if args.recursive:
-    proj_list = get_all_projects()
+    project, version = check_projver(args)
+    print("Working on project '{}' version '{}'\n".format(project['name'], version['versionName']))
 
-bom_comp_dict = {}
-bom_components = get_bom_components(version)
+    if args.recursive:
+        proj_list = get_all_projects()
 
-#######################################################################################################################
-#
-# Get the BOM component entries
-# version_url = version['_meta']['href']
-# hierarchy_url = version_url + "/hierarchical-components?limit=5000"
-# hierarchy = hub.execute_get(hierarchy_url)
-# if hierarchy.status_code != 200:
-#     logging.error("Failed to retrieve hierarchy, status code: {}".format(hierarchy.status_code))
-#     exit()
+    bom_comp_dict = {}
+    bom_components = get_bom_components(version)
 
-# output_dict = dict()
-# output_compsdict entries look like this:
-# 'spdx': SPDX record
-# 'spdxname': SPDX record name
-# 'children': List of projver URLs which are children
-# 'matchtypes': List of lists of scan match types for children
+    #######################################################################################################################
+    #
+    # Get the BOM component entries
+    # version_url = version['_meta']['href']
+    # hierarchy_url = version_url + "/hierarchical-components?limit=5000"
+    # hierarchy = hub.execute_get(hierarchy_url)
+    # if hierarchy.status_code != 200:
+    #     logging.error("Failed to retrieve hierarchy, status code: {}".format(hierarchy.status_code))
+    #     exit()
 
-# output_dict['TOPLEVEL'] = {}
-# output_dict['TOPLEVEL']['children'] = []
-spdx_custom_lics = []
+    # output_dict = dict()
+    # output_compsdict entries look like this:
+    # 'spdx': SPDX record
+    # 'spdxname': SPDX record name
+    # 'children': List of projver URLs which are children
+    # 'matchtypes': List of lists of scan match types for children
 
-toppackage = clean_for_spdx("SPDXRef-Package-" + project['name'] + "-" + version['versionName'])
+    # output_dict['TOPLEVEL'] = {}
+    # output_dict['TOPLEVEL']['children'] = []
+    spdx_custom_lics = []
 
-# Define TOP Document entries
-spdx["SPDXID"] = "SPDXRef-DOCUMENT"
-spdx["spdxVersion"] = "SPDX-2.2"
-spdx["creationInfo"] = {
-    "created": quote(version['createdAt'].split('.')[0] + 'Z'),
-    "creators": ["Tool: Black Duck SPDX export script https://github.com/matthewb66/bd_export_spdx2.2"],
-    "licenseListVersion": "3.9",
-}
-if 'description' in project.keys():
-    spdx["creationInfo"]["comment"] = quote(project['description'])
-spdx["name"] = quote(project['name'] + '/' + version['versionName'])
-spdx["dataLicense"] = "CC0-1.0"
-spdx["documentDescribes"] = [toppackage]
-add_relationship("SPDXRef-DOCUMENT", toppackage, "DESCRIBES")
+    toppackage = clean_for_spdx("SPDXRef-Package-" + project['name'] + "-" + version['versionName'])
 
-# Add top package for project version
-#
-projpkg = {
-    "SPDXID": quote(toppackage),
-    "name": quote(project['name']),
-    "versionInfo": quote(version['versionName']),
-    # "packageFileName":  quote(package_file),
-    # "downloadLocation": quote(download_url),
-    # PackageChecksum: SHA1: 85ed0817af83a24ad8da68c2b5094de69833983c,
-    # "licenseConcluded": quote(lic_string),
-    # "licenseDeclared": quote(lic_string),
-    # PackageLicenseComments: <text>Other versions available for a commercial license</text>,
-    # "filesAnalyzed": False,
-    # "ExternalRef: SECURITY cpe23Type {}".format(cpe),
-    # "ExternalRef: PACKAGE-MANAGER purl pkg:" + pkg,
-    # ExternalRef: PERSISTENT-ID swh swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2,
-    # ExternalRef: OTHER LocationRef-acmeforge acmecorp/acmenator/4.1.3-alpha,
-    # ExternalRefComment: This is the external ref for Acme,
-    # "copyrightText": quote(copyrights),
-    # annotations,
-}
-if 'description' in project.keys():
-    projpkg["description"] = quote(project['description'])
-if 'license' in version.keys():
-    projpkg["licenseDeclared"] = version['license']['licenseDisplay']
-spdx['packages'].append(projpkg)
+    # Define TOP Document entries
+    spdx["SPDXID"] = "SPDXRef-DOCUMENT"
+    spdx["spdxVersion"] = "SPDX-2.2"
+    spdx["creationInfo"] = {
+        "created": quote(version['createdAt'].split('.')[0] + 'Z'),
+        "creators": ["Tool: Black Duck SPDX export script https://github.com/blackducksoftware/bd_export_spdx22"],
+        "licenseListVersion": "3.9",
+    }
+    if 'description' in project.keys():
+        spdx["creationInfo"]["comment"] = quote(project['description'])
+    spdx["name"] = quote(project['name'] + '/' + version['versionName'])
+    spdx["dataLicense"] = "CC0-1.0"
+    spdx["documentDescribes"] = [toppackage]
+    add_relationship("SPDXRef-DOCUMENT", toppackage, "DESCRIBES")
 
-processed_comp_list = []
+    # Add top package for project version
+    #
+    projpkg = {
+        "SPDXID": quote(toppackage),
+        "name": quote(project['name']),
+        "versionInfo": quote(version['versionName']),
+        # "packageFileName":  quote(package_file),
+        # "downloadLocation": quote(download_url),
+        # PackageChecksum: SHA1: 85ed0817af83a24ad8da68c2b5094de69833983c,
+        # "licenseConcluded": quote(lic_string),
+        # "licenseDeclared": quote(lic_string),
+        # PackageLicenseComments: <text>Other versions available for a commercial license</text>,
+        # "filesAnalyzed": False,
+        # "ExternalRef: SECURITY cpe23Type {}".format(cpe),
+        # "ExternalRef: PACKAGE-MANAGER purl pkg:" + pkg,
+        # ExternalRef: PERSISTENT-ID swh swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2,
+        # ExternalRef: OTHER LocationRef-acmeforge acmecorp/acmenator/4.1.3-alpha,
+        # ExternalRefComment: This is the external ref for Acme,
+        # "copyrightText": quote(copyrights),
+        # annotations,
+    }
+    if 'description' in project.keys():
+        projpkg["description"] = quote(project['description'])
+    if 'license' in version.keys():
+        projpkg["licenseDeclared"] = version['license']['licenseDisplay']
+    spdx['packages'].append(projpkg)
 
-if 'hierarchical-components' in bd.list_resources(version):
-    hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
-else:
-    hierarchical_bom = []
 
-process_project(toppackage, hierarchical_bom, bom_components)
 
-print("Done\n\nWriting SPDX output file {} ... ".format(args.output), end='')
+    if 'hierarchical-components' in bd.list_resources(version):
+        hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
+    else:
+        hierarchical_bom = []
 
-try:
-    with open(args.output, 'w') as outfile:
-        json.dump(spdx, outfile)
+    process_project(toppackage, hierarchical_bom, bom_components)
 
-except Exception as e:
-    print('ERROR: Unable to create output report file \n' + str(e))
-    sys.exit(3)
+    print("Done\n\nWriting SPDX output file {} ... ".format(args.output), end='')
 
-print("Done")
+    try:
+        with open(args.output, 'w') as outfile:
+            json.dump(spdx, outfile)
+
+    except Exception as e:
+        print('ERROR: Unable to create output report file \n' + str(e))
+        sys.exit(3)
+
+    print("Done")
+
+
+if __name__ == "__main__":
+    run()
