@@ -11,13 +11,7 @@ import requests
 
 from blackduck import Client
 
-bd = Client(
-    token=os.environ.get('BLACKDUCK_API_TOKEN'),
-    base_url=os.environ.get('BLACKDUCK_URL'),
-    # verify=False  # TLS certificate verification
-)
-
-script_version = "0.22 Beta"
+script_version = "0.4 Beta"
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -113,8 +107,37 @@ parser.add_argument("-b", "--basic",
                     help='''Do not export copyright, download link  or package file data (speeds up processing - 
                     same as using "--download_loc --no_copyrights --no_files")''',
                     action='store_true')
+parser.add_argument("--blackduck_url", type=str, help="BLACKDUCK_URL", default="")
+parser.add_argument("--blackduck_api_token", type=str, help="BLACKDUCK_API_TOKEN", default="")
+parser.add_argument("--blackduck_trust_certs", help="BLACKDUCK trust certs", action='store_false')
 
 args = parser.parse_args()
+
+url = os.environ.get('BLACKDUCK_URL')
+if args.blackduck_url:
+    url = args.blackduck_url
+
+api = os.environ.get('BLACKDUCK_API_TOKEN')
+if args.blackduck_api_token:
+    api = args.blackduck_api_token
+
+verify = True
+if args.blackduck_trust_certs:
+    verify = False
+
+if url == '' or url is None:
+    print('BLACKDUCK_URL not set or specified as option --blackduck_url')
+    sys.exit(2)
+
+if api == '' or api is None:
+    print('BLACKDUCK_API_TOKEN not set or specified as option --blackduck_api_token')
+    sys.exit(2)
+
+bd = Client(
+    token=api,
+    base_url=url,
+    verify=verify  # TLS certificate verification
+)
 
 
 def clean_for_spdx(name):
@@ -433,7 +456,7 @@ def get_files(fcomp):
         if len(cfile) > 0:
             retfile = cfile[0]['filePath']['path']
 
-    for ext in ['.jar', '.ear', '.war', '.zip', '.gz', '.tar', '.xz', '.lz', '.bz2', '.7z', '.rar', '.rar', \
+    for ext in ['.jar', '.ear', '.war', '.zip', '.gz', '.tar', '.xz', '.lz', '.bz2', '.7z', '.rar', '.rar',
         '.cpio', '.Z', '.lz4', '.lha', '.arj', '.rpm', '.deb', '.dmg', '.gz', '.whl']:
         if retfile.endswith(ext):
             return retfile
@@ -602,8 +625,6 @@ def process_project(projspdxname, hcomps, bom):
                 print(
                     "INFO: Skipping component {} which has no assigned version".format(bom_component['componentName']))
                 continue
-            else:
-                print("{}/{}".format(bom_component['componentName'], bom_component['componentVersionName']))
 
             print(bom_component['componentName'] + "/" + bom_component['componentVersionName'])
             pkgname = process_comp(bom_component)
@@ -624,14 +645,33 @@ def process_project(projspdxname, hcomps, bom):
                         print("Processing project within project '{}'".format(
                             bom_component['componentName'] + '/' + bom_component['componentVersionName']))
 
-                        sub_comps = bd.get_resource('components', parent=sub_ver)
-                        sub_hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
+                        res = bd.list_resources(parent=sub_ver)
+                        if 'components' in res:
+                            sub_comps = bd.get_resource('components', parent=sub_ver)
+                        else:
+                            thishref = res['href'] + "/components?limit=2000"
+                            headers = {
+                                'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+                            }
+                            res2 = bd.get_json(thishref, headers=headers)
+                            sub_comps = res2['items']
+
+                        if 'hierarchical-components' in res:
+                            sub_hierarchical_bom = bd.get_resource('hierarchical-components', parent=sub_ver)
+                        else:
+                            thishref = res['href'] + "/hierarchical-components?limit=2000"
+                            headers = {
+                                'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+                            }
+                            res2 = bd.get_json(thishref, headers=headers)
+                            sub_hierarchical_bom = res2['items']
 
                         subprojspdxname = clean_for_spdx(bom_component['componentName'] + '/' +
                                                          bom_component['componentVersionName'])
 
                         process_project(subprojspdxname, sub_hierarchical_bom, sub_comps)
-
+                        break
+                    break
 
     return
 
@@ -729,10 +769,22 @@ def check_projver(pargs):
 def get_bom_components(ver):
     global bom_comp_dict
 
-    bom_comps = bd.get_resource('components', parent=ver)
+    res = bd.list_resources(ver)
+    if 'components' not in res:
+        thishref = res['href'] + "/components?limit=2000"
+        headers = {
+            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+        }
+        res = bd.get_json(thishref, headers=headers)
+        bom_comps = res['items']
+    else:
+        bom_comps = bd.get_resource('components', parent=ver)
     bom_comp_dict = {}
     for comp in bom_comps:
+        if 'componentVersion' not in comp:
+            continue
         compver = comp['componentVersion']
+
         bom_comp_dict[compver] = comp
 
     return bom_comps
@@ -779,7 +831,7 @@ spdx["SPDXID"] = "SPDXRef-DOCUMENT"
 spdx["spdxVersion"] = "SPDX-2.2"
 spdx["creationInfo"] = {
     "created": quote(version['createdAt'].split('.')[0] + 'Z'),
-    "creators": ["Tool: Black Duck SPDX export script https://gihub.com/matthewb66/bd_export_spdx"],
+    "creators": ["Tool: Black Duck SPDX export script https://github.com/matthewb66/bd_export_spdx2.2"],
     "licenseListVersion": "3.9",
 }
 if 'description' in project.keys():
@@ -820,9 +872,10 @@ processed_comp_list = []
 
 if 'hierarchical-components' in bd.list_resources(version):
     hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
+else:
+    hierarchical_bom = []
 
-    print('Getting Component Hierarchy:')
-    process_project(toppackage, hierarchical_bom, bom_components)
+process_project(toppackage, hierarchical_bom, bom_components)
 
 print("Done\n\nWriting SPDX output file {} ... ".format(args.output), end='')
 
