@@ -85,16 +85,16 @@ spdx['relationships'] = []
 spdx['snippets'] = []
 spdx['hasExtractedLicensingInfos'] = []
 
-parser = argparse.ArgumentParser(description='"Export SPDX for the given project and version"', prog='export_spdx.py')
+parser = argparse.ArgumentParser(description='"Export SPDX JSON format file for the given project and version"', prog='bd_export_spdx22_json.py')
 parser.add_argument("project_name", type=str, help='Black Duck project name')
 parser.add_argument("project_version", type=str, help='Black Duck version name')
 parser.add_argument("-v", "--version", help="Print script version and exit", action='store_true')
 parser.add_argument("-o", "--output", type=str,
-                    help="Output SPDX file name (SPDX tag format) - default '<proj>-<ver>.spdx'", default="")
+                    help="Output SPDX file name (SPDX JSON format) - default '<proj>-<ver>.json'", default="")
 parser.add_argument("-r", "--recursive", help="Scan sub-projects within projects (default = false)",
                     action='store_true')
 parser.add_argument("--download_loc",
-                    help='''Attempt to identify component download link extracted from Openhub 
+                    help='''Attempt to identify component download link extracted from Openhub
                     (slows down processing - default=false)''',
                     action='store_true')
 parser.add_argument("--no_copyrights",
@@ -104,7 +104,7 @@ parser.add_argument("--no_files",
                     help="Do not export file data for components (speeds up processing - default=false)",
                     action='store_true')
 parser.add_argument("-b", "--basic",
-                    help='''Do not export copyright, download link  or package file data (speeds up processing - 
+                    help='''Do not export copyright, download link  or package file data (speeds up processing -
                     same as using "--download_loc --no_copyrights --no_files")''',
                     action='store_true')
 parser.add_argument("--blackduck_url", type=str, help="BLACKDUCK_URL", default="")
