@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="bd_export_spdx2.2",
-    version="0.7-Beta",
+    version="0.8-Beta",
     author="Matthew Brady",
     author_email="w3matt@gmail.com",
     description="Export an SPDX version 2.2 JSON file from a Black Duck project.",
@@ -23,7 +23,7 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.8',
+    python_requires='>=3.0',
     entry_points={
         'console_scripts': ['bd_export_spdx=export_spdx.bd_export_spdx22_json:run'],
     },

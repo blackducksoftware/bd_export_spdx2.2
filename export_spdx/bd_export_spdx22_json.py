@@ -11,11 +11,13 @@ import requests
 
 from blackduck import Client
 
-script_version = "0.6 Beta"
+script_version = "0.8 Beta"
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+bom_comp_dict = {}
 
 usage_dict = {
     "SOURCE_CODE": "CONTAINS",
@@ -110,8 +112,11 @@ parser.add_argument("-b", "--basic",
 parser.add_argument("--blackduck_url", type=str, help="BLACKDUCK_URL", default="")
 parser.add_argument("--blackduck_api_token", type=str, help="BLACKDUCK_API_TOKEN", default="")
 parser.add_argument("--blackduck_trust_certs", help="BLACKDUCK trust certs", action='store_true')
+parser.add_argument("--blackduck_timeout", help="BD Server requests timeout (seconds - default 15)", default=15)
 
 args = parser.parse_args()
+
+spdx_ids = {}
 
 url = os.environ.get('BLACKDUCK_URL')
 if args.blackduck_url:
@@ -136,7 +141,8 @@ if api == '' or api is None:
 bd = Client(
     token=api,
     base_url=url,
-    verify=verify  # TLS certificate verification
+    verify=verify,  # TLS certificate verification
+    timeout=args.blackduck_timeout
 )
 
 processed_comp_list = []
@@ -145,6 +151,9 @@ processed_comp_list = []
 def clean_for_spdx(name):
     newname = re.sub('[;:!*()/,]', '', name)
     newname = re.sub('[ .]', '', newname)
+    newname = re.sub('@', '-at-', newname)
+    newname = re.sub('_', 'uu', newname)
+
     return newname
 
 
@@ -465,6 +474,53 @@ def get_files(fcomp):
     return 'NOASSERTION'
 
 
+
+
+def get_homepage(comp):
+
+    resp = bd.get_resource('homepage', comp)
+
+    url = 'PackageHomePage: NOASSERTION'
+    desc = ''
+
+    if resp['url']:
+        url = 'PackageHomePage: {}'.format(resp['url'])
+
+    if resp['description']:
+        desc = 'PackageSummary: <text>{}</text>'.format(resp['description'])
+
+    return '\n'.join([url, desc])
+
+
+def get_package_supplier(comp):
+
+    fields_url  = next((item for item in comp['_meta']['links'] if item["rel"] == "custom-fields"), None)
+
+    #fields_val = bd.get_resource(fields_url['href'])
+
+    #fields_val = bd.get_resource('custom-fields', comp)
+
+    #sbom_field = next((item for item in fields_val if item['label'] == "SBOM:PackageSupplier"), None)
+
+    #if sbom_field is not None and len(sbom_field['values']) > 0:
+    #    supplier_name = sbom_field['values'][0]
+    #    return supplier_name
+
+
+def pull_custom_supplier(fieldurl):
+
+    pk = bd.get_resource(fieldurl['href'])
+
+    #print(pk)
+
+    sbom_field = next((item for item in pk['items'] if item['label'] == "SBOM:PackageSupplier"), None)
+
+    if len(sbom_field['values']) > 0:
+        supplier_name = sbom_field['values'][0]
+        return supplier_name
+
+
+
 def process_comp(tcomp):
     # global output_dict
     global bom_components
@@ -483,8 +539,24 @@ def process_comp(tcomp):
     spdxpackage_name = clean_for_spdx(
         "SPDXRef-Package-" + tcomp['componentName'] + "-" + tcomp['componentVersionName'])
 
+    incval = 0
+
+    if spdxpackage_name in spdx_ids:
+        return spdxpackage_name
+
+    spdx_ids[spdxpackage_name] = 1
+
+#        incval = incval + 1
+        #spdxpackage_name = spdxpackage_name+ '-' + str(incval)
+
+    #spdx_ids[spdxpackage_name] = 1
+
+    openhub_url = None
+
     if cver not in processed_comp_list:
         download_url = "NOASSERTION"
+
+        fcomp = bd.get_json(tcomp['component'])
 
         if args.download_loc:
             openhub_url = next((item for item in bomentry['_meta']['links'] if item["rel"] == "openhub"), None)
@@ -508,6 +580,70 @@ def process_comp(tcomp):
         annotations = get_comments(bomentry)
         lic_string = get_licenses(bomentry)
 
+
+        component_package_supplier = ''
+
+        if 'custom-fields' in bomentry:
+            custom_fields = bd.get_resource('customFieldObjects', bomentry)
+            #print(custom_fields)
+
+
+        #customfields_url = next((item for item in tcomp['_meta']['links'] if item["rel"] == 'custom-fields'), None)
+        #if customfields_url is not None:
+        #    component_package_supplier = get_package_supplier(tcomp)
+
+
+
+
+        homepage = 'NOASSERTION'
+        if 'url' in fcomp.keys():
+            homepage = fcomp['url']
+
+        bom_package_supplier = get_package_supplier(bomentry)
+
+        packageinfo = "This is a"
+
+        if bomentry['componentType'] == 'CUSTOM_COMPONENT':
+            packageinfo = packageinfo + " custom component"
+        if bomentry['componentType'] == 'SUB_PROJECT':
+            packageinfo = packageinfo + " sub project"
+        else:
+            packageinfo = packageinfo + "n open source component from the Black Duck Knowledge Base"
+
+        if len(bomentry['matchTypes']) > 0:
+            firstType = bomentry['matchTypes'][0]
+            if(firstType == 'MANUAL_BOM_COMPONENT'):
+                packageinfo = packageinfo + " which was manually added"
+            else:
+                packageinfo = packageinfo + " which was automatically detected"
+                if firstType == 'FILE_EXACT':
+                    packageinfo = packageinfo + " as a direct file match"
+                elif firstType == 'SNIPPET':
+                    packageinfo = packageinfo + " as a code snippet"
+                elif firstType == 'FILE_DEPENDENCY_DIRECT':
+                    packageinfo = packageinfo + " as a directly declared dependency"
+                elif firstType == 'FILE_DEPENDENCY_TRANSITIVE':
+                    packageinfo = packageinfo + " as a transitive dependency"
+
+        packagesuppliername = 'PackageSupplier: '
+
+        if bom_package_supplier is not None and len(bom_package_supplier) > 0:
+            packageinfo = packageinfo + ", the PackageSupplier was provided by the user at the BOM level"
+            packagesuppliername = packagesuppliername + bom_package_supplier
+            pkg = "supplier:{}/{}/{}".format(bom_package_supplier.replace("Organization: ", ""), tcomp['componentName'], tcomp['componentVersionName'])
+        elif component_package_supplier is not None and len(component_package_supplier) > 0:
+            packageinfo = packageinfo + ", the PackageSupplier was populated in the component"
+            packagesuppliername = packagesuppliername + component_package_supplier
+            pkg = "supplier:{}/{}/{}".format(component_package_supplier.replace("Organization: ", ""), tcomp['componentName'], tcomp['componentVersionName'])
+        elif bomentry['origins'] is not None and len(bomentry['origins']) > 0:
+            packagesuppliername = packagesuppliername + "Organization: " + bomentry['origins'][0]['externalNamespace']
+            packageinfo = packageinfo + ", the PackageSupplier was based on the externalNamespace"
+        else:
+            packageinfo = packageinfo + ", the PackageSupplier was not populated"
+            packagesuppliername = packagesuppliername + "NOASSERTION"
+
+
+
         thisdict = {
             "SPDXID": quote(spdxpackage_name),
             "name": quote(tcomp['componentName']),
@@ -515,11 +651,13 @@ def process_comp(tcomp):
             "packageFileName": quote(package_file),
             "description": quote(desc),
             "downloadLocation": quote(download_url),
+            "packageHomepage": quote(homepage),
             # PackageChecksum: SHA1: 85ed0817af83a24ad8da68c2b5094de69833983c,
             "licenseConcluded": quote(lic_string),
             "licenseDeclared": quote(lic_string),
             # PackageLicenseComments: <text>Other versions available for a commercial license</text>,
             "filesAnalyzed": False,
+            "packageComment": quote(packageinfo),
             # "ExternalRef: SECURITY cpe23Type {}".format(cpe),
             # "ExternalRef: PACKAGE-MANAGER purl pkg:" + pkg,
             # ExternalRef: PERSISTENT-ID swh swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2,
@@ -533,9 +671,26 @@ def process_comp(tcomp):
             thisdict["externalRefs"] = [
                 {
                     "referenceLocator": pkg,
+                    "referenceCategory": "PACKAGE_MANAGER",
+                    "referenceType": "purl"
+                },
+                {
                     "referenceCategory": "OTHER",
+                    "referenceType": "BlackDuckHub-Component",
+                    "referenceLocator": tcomp['component'],
+                },
+                {
+                    "referenceCategory": "OTHER",
+                    "referenceType": "BlackDuckHub-Component-Version",
+                    "referenceLocator": cver
                 }
             ]
+            if openhub_url is not None:
+                thisdict['externalRefs'].append({
+                    "referenceCategory": "OTHER",
+                    "referenceType": "OpenHub",
+                    "referenceLocator": openhub_url
+                })
 
         spdx['packages'].append(thisdict)
     return spdxpackage_name
@@ -598,11 +753,15 @@ def process_project(projspdxname, hcomps, bom):
     global spdx
     global spdx_custom_lics
 
+    complist = []
+
     #
     # Process hierarchical BOM elements
     for hcomp in hcomps:
         if 'componentVersionName' in hcomp:
-            print("{}/{}".format(hcomp['componentName'], hcomp['componentVersionName']))
+            compname = "{}/{}".format(hcomp['componentName'], hcomp['componentVersionName'])
+            complist.append(compname)
+            print(compname)
         else:
             print("{}/? - (no version - skipping)".format(hcomp['componentName']))
             continue
@@ -620,15 +779,20 @@ def process_project(projspdxname, hcomps, bom):
     #
     # Process all entries to find manual entries (not in hierarchical BOM) and sub-projects
     for bom_component in bom:
+        if 'componentVersion' not in bom_component.keys():
+            print(
+                "INFO: Skipping component {} which has no assigned version".format(bom_component['componentName']))
+            continue
 
+        compname = bom_component['componentName'] + "/" + bom_component['componentVersionName']
+        if compname in complist:
+            continue
         # Check if this component is a sub-project
-        if bom_component['matchTypes'][0] == "MANUAL_BOM_COMPONENT":
-            if 'componentVersionName' not in bom_component.keys():
-                print(
-                    "INFO: Skipping component {} which has no assigned version".format(bom_component['componentName']))
-                continue
+        # if bom_component['matchTypes'][0] == "MANUAL_BOM_COMPONENT":
+        if True:
+            print(compname)
+            complist.append(compname)
 
-            print(bom_component['componentName'] + "/" + bom_component['componentVersionName'])
             pkgname = process_comp(bom_component)
 
             process_comp_relationship(projspdxname, pkgname, bom_component['matchTypes'])
@@ -674,6 +838,8 @@ def process_project(projspdxname, hcomps, bom):
                         process_project(subprojspdxname, sub_hierarchical_bom, sub_comps)
                         break
                     break
+
+    print('Processed {} components'.format(len(complist)))
 
     return
 
@@ -764,7 +930,7 @@ def check_projver(pargs):
         for ver in versions:
             if ver['versionName'] == pargs.project_version:
                 return proj, ver
-    print("Version '{}' does not exist in project '{}'".format(pargs.project_name, pargs.project_version))
+    print("Version '{}' does not exist in project '{}'".format(pargs.project_version, pargs.project_name))
     sys.exit(2)
 
 
@@ -781,7 +947,6 @@ def get_bom_components(ver):
         bom_comps = res['items']
     else:
         bom_comps = bd.get_resource('components', parent=ver)
-    bom_comp_dict = {}
     for comp in bom_comps:
         if 'componentVersion' not in comp:
             continue
@@ -789,6 +954,8 @@ def get_bom_components(ver):
 
         bom_comp_dict[compver] = comp
 
+    if 'components' in res:
+        bom_comps = bd.get_resource('components', parent=ver)
     return bom_comps
 
 
@@ -796,6 +963,7 @@ def run():
     global spdx
     global args
     global processed_comp_list
+    global bom_comp_dict
 
     print("BLACK DUCK SPDX EXPORT SCRIPT VERSION {}\n".format(script_version))
 
@@ -838,7 +1006,7 @@ def run():
     spdx["spdxVersion"] = "SPDX-2.2"
     spdx["creationInfo"] = {
         "created": quote(version['createdAt'].split('.')[0] + 'Z'),
-        "creators": ["Tool: Black Duck SPDX export script https://github.com/blackducksoftware/bd_export_spdx22"],
+        "creators": ["Tool: Black Duck SPDX export script https://github.com/matthewb66/bd_export_spdx2.2"],
         "licenseListVersion": "3.9",
     }
     if 'description' in project.keys():
@@ -846,8 +1014,26 @@ def run():
     spdx["name"] = quote(project['name'] + '/' + version['versionName'])
     spdx["dataLicense"] = "CC0-1.0"
     spdx["documentDescribes"] = [toppackage]
-    add_relationship("SPDXRef-DOCUMENT", toppackage, "DESCRIBES")
+    spdx["documentNamespace"] = version['_meta']['href']
+    spdx["downloadLocation"] = "NOASSERTION"
+    spdx["filesAnalyzed"] = False
+    spdx["copyrightText"] = "NOASSERTION"
+    spdx["externalRefs"] = [
+                {
+                    "referenceCategory": "OTHER",
+                    "referenceType": "BlackDuckHub-Project",
+                    "referenceLocator": project["_meta"]["href"],
+                },
+                {
+                    "referenceCategory": "OTHER",
+                    "referenceType": "BlackDuckHub-Project-Version",
+                    "referenceLocator": version["_meta"]["href"]
+                }
+            ]
 
+
+
+    add_relationship("SPDXRef-DOCUMENT", toppackage, "DESCRIBES")
     # Add top package for project version
     #
     projpkg = {
@@ -872,10 +1058,11 @@ def run():
     if 'description' in project.keys():
         projpkg["description"] = quote(project['description'])
     if 'license' in version.keys():
-        projpkg["licenseDeclared"] = version['license']['licenseDisplay']
+        if version['license']['licenseDisplay'] == 'Unknown License':
+            projpkg["licenseDeclared"] = "NOASSERTION"
+        else:
+            projpkg["licenseDeclared"] = version['license']['licenseDisplay']
     spdx['packages'].append(projpkg)
-
-
 
     if 'hierarchical-components' in bd.list_resources(version):
         hierarchical_bom = bd.get_resource('hierarchical-components', parent=version)
