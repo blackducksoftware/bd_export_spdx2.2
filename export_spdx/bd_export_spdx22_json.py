@@ -11,7 +11,7 @@ import requests
 
 from blackduck import Client
 
-script_version = "0.9 Beta"
+script_version = "0.10 Beta"
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -699,7 +699,7 @@ def process_children(pkgname, compverurl, child_url, indenttext):
     global spdx_custom_lics
     global processed_comp_list
 
-    res = bd.get_json(child_url)
+    res = bd.get_json(child_url + '?limit=5000')
 
     for child in res['items']:
         if 'componentName' in child and 'componentVersionName' in child:
