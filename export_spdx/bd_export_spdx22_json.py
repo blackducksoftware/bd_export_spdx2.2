@@ -11,13 +11,14 @@ import requests
 
 from blackduck import Client
 
-script_version = "0.8 Beta"
+script_version = "0.9 Beta"
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 bom_comp_dict = {}
+processed_comp_list = []
 
 usage_dict = {
     "SOURCE_CODE": "CONTAINS",
@@ -144,8 +145,6 @@ bd = Client(
     verify=verify,  # TLS certificate verification
     timeout=args.blackduck_timeout
 )
-
-processed_comp_list = []
 
 
 def clean_for_spdx(name):
@@ -698,6 +697,7 @@ def process_comp(tcomp):
 
 def process_children(pkgname, compverurl, child_url, indenttext):
     global spdx_custom_lics
+    global processed_comp_list
 
     res = bd.get_json(child_url)
 
@@ -723,7 +723,9 @@ def process_children(pkgname, compverurl, child_url, indenttext):
                         add_relationship(pkgname, childpkgname,
                                          matchtype_contains_dict[tchecktype])
                         break
-            processed_comp_list.append(child)
+            processed_comp_list.append(child['componentVersion'])
+        else:
+            pass
 
         if len(child['_meta']['links']) > 2:
             thisref = [d['href'] for d in child['_meta']['links'] if d['rel'] == 'children']
@@ -752,15 +754,13 @@ def process_project(projspdxname, hcomps, bom):
     global proj_list
     global spdx
     global spdx_custom_lics
-
-    complist = []
+    global processed_comp_list
 
     #
     # Process hierarchical BOM elements
     for hcomp in hcomps:
         if 'componentVersionName' in hcomp:
             compname = "{}/{}".format(hcomp['componentName'], hcomp['componentVersionName'])
-            complist.append(compname)
             print(compname)
         else:
             print("{}/? - (no version - skipping)".format(hcomp['componentName']))
@@ -777,7 +777,7 @@ def process_project(projspdxname, hcomps, bom):
                 process_children(pkgname, hcomp['componentVersion'], href[0], "--> ")
 
     #
-    # Process all entries to find manual entries (not in hierarchical BOM) and sub-projects
+    # Process all entries to find entries not in hierarchical BOM and sub-projects
     for bom_component in bom:
         if 'componentVersion' not in bom_component.keys():
             print(
@@ -785,61 +785,59 @@ def process_project(projspdxname, hcomps, bom):
             continue
 
         compname = bom_component['componentName'] + "/" + bom_component['componentVersionName']
-        if compname in complist:
+        if bom_component['componentVersion'] in processed_comp_list:
             continue
         # Check if this component is a sub-project
         # if bom_component['matchTypes'][0] == "MANUAL_BOM_COMPONENT":
-        if True:
-            print(compname)
-            complist.append(compname)
+        print(compname)
 
-            pkgname = process_comp(bom_component)
+        pkgname = process_comp(bom_component)
 
-            process_comp_relationship(projspdxname, pkgname, bom_component['matchTypes'])
+        process_comp_relationship(projspdxname, pkgname, bom_component['matchTypes'])
 
-            if args.recursive and bom_component['componentName'] in proj_list:
+        if args.recursive and bom_component['componentName'] in proj_list:
+            params = {
+                'q': "name:" + bom_component['componentName'],
+            }
+            sub_projects = bd.get_resource('projects', params=params)
+            for sub_proj in sub_projects:
                 params = {
-                    'q': "name:" + bom_component['componentName'],
+                    'q': "versionName:" + bom_component['componentVersionName'],
                 }
-                sub_projects = bd.get_resource('projects', params=params)
-                for sub_proj in sub_projects:
-                    params = {
-                        'q': "versionName:" + bom_component['componentVersionName'],
-                    }
-                    sub_versions = bd.get_resource('versions', parent=sub_proj, params=params)
-                    for sub_ver in sub_versions:
-                        print("Processing project within project '{}'".format(
-                            bom_component['componentName'] + '/' + bom_component['componentVersionName']))
+                sub_versions = bd.get_resource('versions', parent=sub_proj, params=params)
+                for sub_ver in sub_versions:
+                    print("Processing project within project '{}'".format(
+                        bom_component['componentName'] + '/' + bom_component['componentVersionName']))
 
-                        res = bd.list_resources(parent=sub_ver)
-                        if 'components' in res:
-                            sub_comps = bd.get_resource('components', parent=sub_ver)
-                        else:
-                            thishref = res['href'] + "/components?limit=2000"
-                            headers = {
-                                'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
-                            }
-                            res2 = bd.get_json(thishref, headers=headers)
-                            sub_comps = res2['items']
+                    res = bd.list_resources(parent=sub_ver)
+                    if 'components' in res:
+                        sub_comps = bd.get_resource('components', parent=sub_ver)
+                    else:
+                        thishref = res['href'] + "/components?limit=2000"
+                        headers = {
+                            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+                        }
+                        res2 = bd.get_json(thishref, headers=headers)
+                        sub_comps = res2['items']
 
-                        if 'hierarchical-components' in res:
-                            sub_hierarchical_bom = bd.get_resource('hierarchical-components', parent=sub_ver)
-                        else:
-                            thishref = res['href'] + "/hierarchical-components?limit=2000"
-                            headers = {
-                                'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
-                            }
-                            res2 = bd.get_json(thishref, headers=headers)
-                            sub_hierarchical_bom = res2['items']
+                    if 'hierarchical-components' in res:
+                        sub_hierarchical_bom = bd.get_resource('hierarchical-components', parent=sub_ver)
+                    else:
+                        thishref = res['href'] + "/hierarchical-components?limit=2000"
+                        headers = {
+                            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+                        }
+                        res2 = bd.get_json(thishref, headers=headers)
+                        sub_hierarchical_bom = res2['items']
 
-                        subprojspdxname = clean_for_spdx(bom_component['componentName'] + '/' +
-                                                         bom_component['componentVersionName'])
+                    subprojspdxname = clean_for_spdx(bom_component['componentName'] + '/' +
+                                                     bom_component['componentVersionName'])
 
-                        process_project(subprojspdxname, sub_hierarchical_bom, sub_comps)
-                        break
+                    process_project(subprojspdxname, sub_hierarchical_bom, sub_comps)
                     break
+                break
 
-    print('Processed {} components'.format(len(complist)))
+    print('Processed {} components'.format(len(processed_comp_list)))
 
     return
 
