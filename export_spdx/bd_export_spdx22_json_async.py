@@ -8,17 +8,20 @@ import os
 import re
 from lxml import html
 import requests
+import aiohttp
+import asyncio
+import time
 
 from blackduck import Client
 
-script_version = "0.10 Beta"
+script_version = "0.11 Async"
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-bom_comp_dict = {}
 processed_comp_list = []
+spdx_custom_lics = []
 
 usage_dict = {
     "SOURCE_CODE": "CONTAINS",
@@ -224,57 +227,6 @@ def openhub_get_download(oh_url):
     return "NOASSERTION"
 
 
-def get_licenses(lcomp):
-    global spdx_custom_lics
-
-    # Get licenses
-    lic_string = "NOASSERTION"
-    quotes = False
-    if 'licenses' in lcomp.keys():
-        proc_item = lcomp['licenses']
-
-        if len(proc_item[0]['licenses']) > 1:
-            proc_item = proc_item[0]['licenses']
-
-        for lic in proc_item:
-            thislic = ''
-            if 'spdxId' in lic:
-                thislic = lic['spdxId']
-                if thislic in spdx_deprecated_dict.keys():
-                    thislic = spdx_deprecated_dict[thislic]
-            else:
-                # Custom license
-                try:
-                    thislic = 'LicenseRef-' + clean_for_spdx(lic['licenseDisplay'])
-                    lic_ref = lic['license'].split("/")[-1]
-                    headers = {
-                        'accept': "text/plain",
-                    }
-                    resp = bd.session.get('/api/licenses/' + lic_ref + '/text', headers=headers)
-                    resp.raise_for_status()
-
-                    lic_text = resp.content.decode("utf-8")
-                    if thislic not in spdx_custom_lics:
-                        mydict = {
-                            'licenseID': quote(thislic),
-                            'extractedText': quote(lic_text)
-                        }
-                        spdx["hasExtractedLicensingInfos"].append(mydict)
-                        spdx_custom_lics.append(thislic)
-                except Exception as exc:
-                    pass
-            if lic_string == "NOASSERTION":
-                lic_string = thislic
-            else:
-                lic_string = lic_string + " AND " + thislic
-                quotes = True
-
-        if quotes:
-            lic_string = "(" + lic_string + ")"
-
-    return lic_string
-
-
 # 1. translate external_namespace to purl_type [and optionally, purl_namespace]
 # 2. split external_id into component_id and version:
 #     if: external_namespace not in (npmjs, maven) and splt(external_id by id_separator) > 2 segements
@@ -386,97 +338,7 @@ def calculate_purl(namespace, extid):
     return ''
 
 
-def get_orig_data(dcomp):
-    # Get copyrights, CPE
-    copyrights = "NOASSERTION"
-    cpe = "NOASSERTION"
-    pkg = "NOASSERTION"
-    try:
-        if 'origins' in dcomp.keys() and len(dcomp['origins']) > 0:
-            orig = dcomp['origins'][0]
-            if 'externalNamespace' in orig.keys() and 'externalId' in orig.keys():
-                pkg = calculate_purl(orig['externalNamespace'], orig['externalId'])
-
-
-
-            link = next((item for item in orig['_meta']['links'] if item["rel"] == "component-origin-copyrights"), None)
-            thishref = link['href'] + "?limit=100"
-            headers = {
-                'accept': "application/vnd.blackducksoftware.copyright-4+json",
-            }
-            resp = bd.get_json(thishref, headers=headers)
-            for copyrt in resp['items']:
-                if copyrt['active']:
-                    thiscr = copyrt['updatedCopyright'].splitlines()[0].strip()
-                    if thiscr not in copyrights:
-                        if copyrights == "NOASSERTION":
-                            copyrights = thiscr
-                        else:
-                            copyrights += "\n" + thiscr
-        else:
-            pass
-    # print("	INFO: No copyright data available due to no assigned origin")
-
-    except Exception as exc:
-        print("except" + str(exc))
-
-    return copyrights, cpe, pkg
-
-
-def get_comments(ccomp):
-    # Get comments/annotations
-    annotations = []
-    hrefs = ccomp['_meta']['links']
-
-    link = next((item for item in hrefs if item["rel"] == "comments"), None)
-    if link:
-        thishref = link['href']
-        headers = {
-            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
-        }
-        resp = bd.get_json(thishref, headers=headers)
-        mytime = datetime.datetime.now()
-        mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        for comment in resp['items']:
-            annotations.append(
-                {
-                    "annotationDate": quote(mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")),
-                    "annotationType": "OTHER",
-                    "annotator": quote("Person: " + comment['user']['email']),
-                    "comment": quote(comment['comment']),
-                }
-            )
-    return annotations
-
-
-def get_files(fcomp):
-    # Get files
-    retfile = "NOASSERTION"
-    hrefs = fcomp['_meta']['links']
-
-    link = next((item for item in hrefs if item["rel"] == "matched-files"), None)
-    if link:
-        thishref = link['href']
-        headers = {
-            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
-        }
-        resp = bd.get_json(thishref, headers=headers)
-
-        cfile = resp['items']
-        if len(cfile) > 0:
-            retfile = cfile[0]['filePath']['path']
-
-    for ext in ['.jar', '.ear', '.war', '.zip', '.gz', '.tar', '.xz', '.lz', '.bz2', '.7z', '.rar', '.rar',
-        '.cpio', '.Z', '.lz4', '.lha', '.arj', '.rpm', '.deb', '.dmg', '.gz', '.whl']:
-        if retfile.endswith(ext):
-            return retfile
-    return 'NOASSERTION'
-
-
-
-
 def get_homepage(comp):
-
     resp = bd.get_resource('homepage', comp)
 
     url = 'PackageHomePage: NOASSERTION'
@@ -492,7 +354,6 @@ def get_homepage(comp):
 
 
 def get_package_supplier(comp):
-
     fields_url  = next((item for item in comp['_meta']['links'] if item["rel"] == "custom-fields"), None)
 
     #fields_val = bd.get_resource(fields_url['href'])
@@ -507,7 +368,6 @@ def get_package_supplier(comp):
 
 
 def pull_custom_supplier(fieldurl):
-
     pk = bd.get_resource(fieldurl['href'])
 
     #print(pk)
@@ -520,18 +380,17 @@ def pull_custom_supplier(fieldurl):
 
 
 
-def process_comp(tcomp):
+def process_comp(comps_dict, tcomp, comp_data_dict):
     # global output_dict
     global bom_components
-    global bom_comp_dict
     global spdx_custom_lics
     global spdx
     global processed_comp_list
 
     cver = tcomp['componentVersion']
-    if cver in bom_comp_dict.keys():
+    if cver in comps_dict.keys():
         # ind = compverlist.index(tcomp['componentVersion'])
-        bomentry = bom_comp_dict[cver]
+        bomentry = comps_dict[cver]
     else:
         bomentry = tcomp
 
@@ -555,48 +414,49 @@ def process_comp(tcomp):
     if cver not in processed_comp_list:
         download_url = "NOASSERTION"
 
-        fcomp = bd.get_json(tcomp['component'])
-
-        if args.download_loc:
-            openhub_url = next((item for item in bomentry['_meta']['links'] if item["rel"] == "openhub"), None)
-            if openhub_url is not None:
-                download_url = openhub_get_download(openhub_url['href'])
+        # fcomp = bd.get_json(tcomp['component'])
+        #
+        # if args.download_loc:
+        #     openhub_url = next((item for item in bomentry['_meta']['links'] if item["rel"] == "openhub"), None)
+        #     if openhub_url is not None:
+        #         download_url = openhub_get_download(openhub_url['href'])
 
         copyrights = "NOASSERTION"
         cpe = "NOASSERTION"
         pkg = "NOASSERTION"
         if not args.no_copyrights:
-            copyrights, cpe, pkg = get_orig_data(bomentry)
+            # copyrights, cpe, pkg = get_orig_data(bomentry)
+            copyrights = comp_data_dict[cver]['copyrights']
+
+            if 'origins' in bomentry.keys() and len(bomentry['origins']) > 0:
+                orig = bomentry['origins'][0]
+                if 'externalNamespace' in orig.keys() and 'externalId' in orig.keys():
+                    pkg = calculate_purl(orig['externalNamespace'], orig['externalId'])
 
         package_file = "NOASSERTION"
         if not args.no_files:
-            package_file = get_files(bomentry)
+            package_file = comp_data_dict[cver]['files']
 
         desc = 'NOASSERTION'
         if 'description' in tcomp.keys():
             desc = re.sub('[^a-zA-Z.()\d\s\-:]', '', bomentry['description'])
 
-        annotations = get_comments(bomentry)
-        lic_string = get_licenses(bomentry)
-
+        annotations = comp_data_dict[cver]['comments']
+        lic_string = comp_data_dict[cver]['licenses']
 
         component_package_supplier = ''
 
-        if 'custom-fields' in bomentry:
-            custom_fields = bd.get_resource('customFieldObjects', bomentry)
-            #print(custom_fields)
-
+        # if 'custom-fields' in bomentry:
+        #     custom_fields = bd.get_resource('customFieldObjects', bomentry)
+        #     #print(custom_fields)
 
         #customfields_url = next((item for item in tcomp['_meta']['links'] if item["rel"] == 'custom-fields'), None)
         #if customfields_url is not None:
         #    component_package_supplier = get_package_supplier(tcomp)
 
-
-
-
         homepage = 'NOASSERTION'
-        if 'url' in fcomp.keys():
-            homepage = fcomp['url']
+        # if 'url' in fcomp.keys():
+        #     homepage = fcomp['url']
 
         bom_package_supplier = get_package_supplier(bomentry)
 
@@ -640,8 +500,6 @@ def process_comp(tcomp):
         else:
             packageinfo = packageinfo + ", the PackageSupplier was not populated"
             packagesuppliername = packagesuppliername + "NOASSERTION"
-
-
 
         thisdict = {
             "SPDXID": quote(spdxpackage_name),
@@ -695,7 +553,7 @@ def process_comp(tcomp):
     return spdxpackage_name
 
 
-def process_children(pkgname, compverurl, child_url, indenttext):
+def process_children(pkgname, compverurl, child_url, indenttext, comps_dict, comp_data_dict):
     global spdx_custom_lics
     global processed_comp_list
 
@@ -703,13 +561,14 @@ def process_children(pkgname, compverurl, child_url, indenttext):
 
     for child in res['items']:
         if 'componentName' in child and 'componentVersionName' in child:
-            print("{}{}/{}".format(indenttext, child['componentName'], child['componentVersionName']))
+            # print("{}{}/{}".format(indenttext, child['componentName'], child['componentVersionName']))
+            pass
         else:
             # No version - skip
             print("{}{}/{} (SKIPPED)".format(indenttext, child['componentName'], '?'))
             continue
 
-        childpkgname = process_comp(child)
+        childpkgname = process_comp(comps_dict, child, comp_data_dict)
         if childpkgname != '':
             reln = False
             for tchecktype in matchtype_depends_dict.keys():
@@ -729,7 +588,8 @@ def process_children(pkgname, compverurl, child_url, indenttext):
 
         if len(child['_meta']['links']) > 2:
             thisref = [d['href'] for d in child['_meta']['links'] if d['rel'] == 'children']
-            process_children(childpkgname, child['componentVersion'], thisref[0], "    " + indenttext)
+            process_children(childpkgname, child['componentVersion'], thisref[0], "    " + indenttext, comps_dict,
+                             comp_data_dict)
 
     return
 
@@ -750,7 +610,7 @@ def process_comp_relationship(parentname, childname, mtypes):
                 break
 
 
-def process_project(projspdxname, hcomps, bom):
+def process_project(projspdxname, hcomps, compsdict, comp_data_dict):
     global proj_list
     global spdx
     global spdx_custom_lics
@@ -758,27 +618,34 @@ def process_project(projspdxname, hcomps, bom):
 
     #
     # Process hierarchical BOM elements
+    print('Processing hierarchical BOM ...')
+    compcount = 0
     for hcomp in hcomps:
         if 'componentVersionName' in hcomp:
             compname = "{}/{}".format(hcomp['componentName'], hcomp['componentVersionName'])
-            print(compname)
+            # print(compname)
         else:
             print("{}/? - (no version - skipping)".format(hcomp['componentName']))
             continue
 
-        pkgname = process_comp(hcomp)
+        pkgname = process_comp(compsdict, hcomp, comp_data_dict)
 
         if pkgname != '':
             process_comp_relationship(projspdxname, pkgname, hcomp['matchTypes'])
             processed_comp_list.append(hcomp['componentVersion'])
+            compcount += 1
 
             href = [d['href'] for d in hcomp['_meta']['links'] if d['rel'] == 'children']
             if len(href) > 0:
-                process_children(pkgname, hcomp['componentVersion'], href[0], "--> ")
+                process_children(pkgname, hcomp['componentVersion'], href[0], "--> ", compsdict,
+                             comp_data_dict)
 
+    print('Processed {} hierarchical components'.format(compcount))
     #
     # Process all entries to find entries not in hierarchical BOM and sub-projects
-    for bom_component in bom:
+    print('Processing remaining components ...')
+    compcount = 0
+    for key, bom_component in compsdict.items():
         if 'componentVersion' not in bom_component.keys():
             print(
                 "INFO: Skipping component {} which has no assigned version".format(bom_component['componentName']))
@@ -789,9 +656,9 @@ def process_project(projspdxname, hcomps, bom):
             continue
         # Check if this component is a sub-project
         # if bom_component['matchTypes'][0] == "MANUAL_BOM_COMPONENT":
-        print(compname)
+        # print(compname)
 
-        pkgname = process_comp(bom_component)
+        pkgname = process_comp(compsdict, bom_component, comp_data_dict)
 
         process_comp_relationship(projspdxname, pkgname, bom_component['matchTypes'])
 
@@ -833,11 +700,13 @@ def process_project(projspdxname, hcomps, bom):
                     subprojspdxname = clean_for_spdx(bom_component['componentName'] + '/' +
                                                      bom_component['componentVersionName'])
 
-                    process_project(subprojspdxname, sub_hierarchical_bom, sub_comps)
+                    process_project(subprojspdxname, sub_hierarchical_bom, compsdict, comp_data_dict)
                     break
                 break
 
-    print('Processed {} components'.format(len(processed_comp_list)))
+    print('Processed {} other components'.format(compcount))
+
+    print('Processed {} Overall components'.format(len(processed_comp_list)))
 
     return
 
@@ -933,11 +802,12 @@ def check_projver(pargs):
 
 
 def get_bom_components(ver):
-    global bom_comp_dict
-
+    comp_dict = {}
     res = bd.list_resources(ver)
-    if 'components' not in res:
-        thishref = res['href'] + "/components?limit=2000"
+    # if 'components' not in res:
+    if True:
+        # Getting the component list via a request is much quicker than the new Client model
+        thishref = res['href'] + "/components?limit=5000"
         headers = {
             'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
         }
@@ -950,18 +820,229 @@ def get_bom_components(ver):
             continue
         compver = comp['componentVersion']
 
-        bom_comp_dict[compver] = comp
+        comp_dict[compver] = comp
 
-    if 'components' in res:
-        bom_comps = bd.get_resource('components', parent=ver)
-    return bom_comps
+    return comp_dict
+
+
+async def async_get_copyrights(session, comp, token):
+    copyrights = "NOASSERTION"
+    orig = comp['origins'][0]
+    link = next((item for item in orig['_meta']['links'] if item["rel"] == "component-origin-copyrights"), None)
+    thishref = link['href'] + "?limit=100"
+    headers = {
+        'accept': "application/vnd.blackducksoftware.copyright-4+json",
+        'Authorization': f'Bearer {token}',
+    }
+    # resp = bd.get_json(thishref, headers=headers)
+    async with session.get(thishref, headers=headers) as resp:
+        result_data = await resp.json()
+        for copyrt in result_data['items']:
+            if copyrt['active']:
+                thiscr = copyrt['updatedCopyright'].splitlines()[0].strip()
+                if thiscr not in copyrights:
+                    if copyrights == "NOASSERTION":
+                        copyrights = thiscr
+                    else:
+                        copyrights += "\n" + thiscr
+    return comp['componentVersion'], copyrights
+
+
+async def async_main(compsdict, token, ver):
+    async with aiohttp.ClientSession() as session:
+        copyright_tasks = []
+        comment_tasks = []
+        file_tasks = []
+        lic_tasks = []
+        child_tasks = []
+        for url, comp in compsdict.items():
+            copyright_task = asyncio.ensure_future(async_get_copyrights(session, comp, token))
+            copyright_tasks.append(copyright_task)
+
+            comment_task = asyncio.ensure_future(async_get_comments(session, comp, token))
+            comment_tasks.append(comment_task)
+
+            file_task = asyncio.ensure_future(async_get_files(session, comp, token))
+            file_tasks.append(file_task)
+
+            lic_task = asyncio.ensure_future(async_get_licenses(session, comp, token))
+            lic_tasks.append(lic_task)
+
+            # child_task = asyncio.ensure_future(async_get_children(session, ver, comp, token))
+            # child_tasks.append(child_task)
+
+        print('Getting component data ... ')
+        all_copyrights = dict(await asyncio.gather(*copyright_tasks))
+        all_comments = dict(await asyncio.gather(*comment_tasks))
+        all_files = dict(await asyncio.gather(*file_tasks))
+        all_lics = dict(await asyncio.gather(*lic_tasks))
+        # all_children = dict(await asyncio.gather(*child_tasks))
+
+    comp_data_dict = {}
+    for cvurl in compsdict.keys():
+        comp_data_dict[cvurl] = {
+            'copyrights': all_copyrights[cvurl],
+            'comments': all_comments[cvurl],
+            'files': all_files[cvurl],
+            'licenses': all_lics[cvurl],
+        }
+    return comp_data_dict
+
+
+async def async_get_copyrights(session, comp, token):
+    copyrights = "NOASSERTION"
+    if len(comp['origins']) < 1:
+        return comp['componentVersion'], copyrights
+
+    orig = comp['origins'][0]
+    link = next((item for item in orig['_meta']['links'] if item["rel"] == "component-origin-copyrights"), None)
+    thishref = link['href'] + "?limit=100"
+    headers = {
+        'accept': "application/vnd.blackducksoftware.copyright-4+json",
+        'Authorization': f'Bearer {token}',
+    }
+    # resp = bd.get_json(thishref, headers=headers)
+    async with session.get(thishref, headers=headers) as resp:
+        result_data = await resp.json()
+        for copyrt in result_data['items']:
+            if copyrt['active']:
+                thiscr = copyrt['updatedCopyright'].splitlines()[0].strip()
+                if thiscr not in copyrights:
+                    if copyrights == "NOASSERTION":
+                        copyrights = thiscr
+                    else:
+                        copyrights += "\n" + thiscr
+    return comp['componentVersion'], copyrights
+
+
+async def async_get_comments(session, comp, token):
+    annotations = []
+    hrefs = comp['_meta']['links']
+
+    link = next((item for item in hrefs if item["rel"] == "comments"), None)
+    if link:
+        thishref = link['href']
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+        }
+        # resp = bd.get_json(thishref, headers=headers)
+        async with session.get(thishref, headers=headers) as resp:
+            result_data = await resp.json()
+            mytime = datetime.datetime.now()
+            mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            for comment in result_data['items']:
+                annotations.append(
+                    {
+                        "annotationDate": quote(mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")),
+                        "annotationType": "OTHER",
+                        "annotator": quote("Person: " + comment['user']['email']),
+                        "comment": quote(comment['comment']),
+                    }
+                )
+    return comp['componentVersion'], annotations
+
+
+async def async_get_files(session, comp, token):
+    retfile = "NOASSERTION"
+    hrefs = comp['_meta']['links']
+
+    link = next((item for item in hrefs if item["rel"] == "matched-files"), None)
+    if link:
+        thishref = link['href']
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+        }
+
+        async with session.get(thishref, headers=headers) as resp:
+            result_data = await resp.json()
+            cfile = result_data['items']
+            if len(cfile) > 0:
+                rfile = cfile[0]['filePath']['path']
+                for ext in ['.jar', '.ear', '.war', '.zip', '.gz', '.tar', '.xz', '.lz', '.bz2', '.7z', '.rar', '.rar',
+                    '.cpio', '.Z', '.lz4', '.lha', '.arj', '.rpm', '.deb', '.dmg', '.gz', '.whl']:
+                    if rfile.endswith(ext):
+                        retfile = rfile
+    return comp['componentVersion'], retfile
+
+
+async def async_get_licenses(session, lcomp, token):
+    global spdx_custom_lics
+
+    # Get licenses
+    lic_string = "NOASSERTION"
+    quotes = False
+    if 'licenses' in lcomp.keys():
+        proc_item = lcomp['licenses']
+
+        if len(proc_item[0]['licenses']) > 1:
+            proc_item = proc_item[0]['licenses']
+
+        for lic in proc_item:
+            thislic = ''
+            if 'spdxId' in lic:
+                thislic = lic['spdxId']
+                if thislic in spdx_deprecated_dict.keys():
+                    thislic = spdx_deprecated_dict[thislic]
+            else:
+                # Custom license
+                try:
+                    thislic = 'LicenseRef-' + clean_for_spdx(lic['licenseDisplay'])
+                    lic_ref = lic['license'].split("/")[-1]
+                    headers = {
+                        'accept': "text/plain",
+                        'Authorization': f'Bearer {token}',
+                    }
+                    # resp = bd.session.get('/api/licenses/' + lic_ref + '/text', headers=headers)
+                    thishref = f"{bd.base_url}/api/licenses/{lic_ref}/text"
+                    async with session.get(thishref, headers=headers) as resp:
+                        lic_text = await resp.content.decode("utf-8")
+                        if thislic not in spdx_custom_lics:
+                            mydict = {
+                                'licenseID': quote(thislic),
+                                'extractedText': quote(lic_text)
+                            }
+                            spdx["hasExtractedLicensingInfos"].append(mydict)
+                            spdx_custom_lics.append(thislic)
+                except Exception as exc:
+                    pass
+            if lic_string == "NOASSERTION":
+                lic_string = thislic
+            else:
+                lic_string = lic_string + " AND " + thislic
+                quotes = True
+
+        if quotes:
+            lic_string = "(" + lic_string + ")"
+
+    return lcomp['componentVersion'], lic_string
+
+
+async def async_get_children(session, ver, comp, token):
+    childurl = ""
+    comparr = comp['componentVersion'].split('/')
+    #'https://poc39.blackduck.synopsys.com/api/components/e0589241-4783-48f7-843a-ba6d4fd3a225/versions/439646f5-71fa-4b9a-bb12-727760daa975'
+    #'https://poc39.blackduck.synopsys.com/api/projects/9cf533a2-21a6-4178-b7d8-67fdc59abb80/versions/55722e3f-7643-49ad-a76d-eb61a6ce0ace'
+    #GET /api/projects/{projectId}/versions/{projectVersionId}/components/{componentId}/hierarchical-components/{hierarchicalId}/children
+    url = '/'.join(ver['_meta']['href'], 'components', comparr[:3], comparr[7])
+    urls = [d['href'] for d in comp['_meta']['links'] if d['rel'] == 'children']
+    if len(urls) > 0:
+        thisref = urls[0] + "?limit=100"
+        headers = {
+            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+            'Authorization': f'Bearer {token}',
+        }
+        # resp = bd.get_json(thishref, headers=headers)
+        async with session.get(thisref, headers=headers) as resp:
+            result_data = await resp.json()
+    return comp['componentVersion'], childurl
 
 
 def run():
     global spdx
     global args
     global processed_comp_list
-    global bom_comp_dict
 
     print("BLACK DUCK SPDX EXPORT SCRIPT VERSION {}\n".format(script_version))
 
@@ -970,34 +1051,20 @@ def run():
     project, version = check_projver(args)
     print("Working on project '{}' version '{}'\n".format(project['name'], version['versionName']))
 
+    bearer_token = bd.session.auth.bearer_token
+
     if args.recursive:
         proj_list = get_all_projects()
 
-    import time
-
     start_time = time.time()
-    bom_comp_dict = {}
-    bom_components = get_bom_components(version)
+    print('Getting components ... ', end='')
+    bom_compsdict = get_bom_components(version)
+    print("({})".format(str(len(bom_compsdict))))
+    print("--- %s seconds ---" % (time.time() - start_time))
 
-    #######################################################################################################################
-    #
-    # Get the BOM component entries
-    # version_url = version['_meta']['href']
-    # hierarchy_url = version_url + "/hierarchical-components?limit=5000"
-    # hierarchy = hub.execute_get(hierarchy_url)
-    # if hierarchy.status_code != 200:
-    #     logging.error("Failed to retrieve hierarchy, status code: {}".format(hierarchy.status_code))
-    #     exit()
+    comp_data_dict = asyncio.run(async_main(bom_compsdict, bearer_token, version))
+    print("--- %s seconds ---" % (time.time() - start_time))
 
-    # output_dict = dict()
-    # output_compsdict entries look like this:
-    # 'spdx': SPDX record
-    # 'spdxname': SPDX record name
-    # 'children': List of projver URLs which are children
-    # 'matchtypes': List of lists of scan match types for children
-
-    # output_dict['TOPLEVEL'] = {}
-    # output_dict['TOPLEVEL']['children'] = []
     spdx_custom_lics = []
 
     toppackage = clean_for_spdx("SPDXRef-Package-" + project['name'] + "-" + version['versionName'])
@@ -1031,8 +1098,6 @@ def run():
                     "referenceLocator": version["_meta"]["href"]
                 }
             ]
-
-
 
     add_relationship("SPDXRef-DOCUMENT", toppackage, "DESCRIBES")
     # Add top package for project version
@@ -1070,7 +1135,7 @@ def run():
     else:
         hierarchical_bom = []
 
-    process_project(toppackage, hierarchical_bom, bom_components)
+    process_project(toppackage, hierarchical_bom, bom_compsdict, comp_data_dict)
     print("--- %s seconds ---" % (time.time() - start_time))
 
     print("Done\n\nWriting SPDX output file {} ... ".format(args.output), end='')
