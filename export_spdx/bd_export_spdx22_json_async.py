@@ -14,7 +14,7 @@ import time
 
 from blackduck import Client
 
-script_version = "0.11 Async"
+script_version = "0.12 Async"
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
@@ -559,16 +559,17 @@ def process_children(pkgname, compverurl, child_url, indenttext, comps_dict, com
 
     res = bd.get_json(child_url + '?limit=5000')
 
+    count = 0
     for child in res['items']:
-        if 'componentName' in child and 'componentVersionName' in child:
+        if 'componentName' not in child or 'componentVersionName' not in child:
             # print("{}{}/{}".format(indenttext, child['componentName'], child['componentVersionName']))
-            pass
-        else:
+        # else:
             # No version - skip
             print("{}{}/{} (SKIPPED)".format(indenttext, child['componentName'], '?'))
             continue
 
         childpkgname = process_comp(comps_dict, child, comp_data_dict)
+        count += 1
         if childpkgname != '':
             reln = False
             for tchecktype in matchtype_depends_dict.keys():
@@ -591,7 +592,7 @@ def process_children(pkgname, compverurl, child_url, indenttext, comps_dict, com
             process_children(childpkgname, child['componentVersion'], thisref[0], "    " + indenttext, comps_dict,
                              comp_data_dict)
 
-    return
+    return count
 
 
 def process_comp_relationship(parentname, childname, mtypes):
@@ -637,13 +638,13 @@ def process_project(projspdxname, hcomps, compsdict, comp_data_dict):
 
             href = [d['href'] for d in hcomp['_meta']['links'] if d['rel'] == 'children']
             if len(href) > 0:
-                process_children(pkgname, hcomp['componentVersion'], href[0], "--> ", compsdict,
+                compcount += process_children(pkgname, hcomp['componentVersion'], href[0], "--> ", compsdict,
                              comp_data_dict)
 
     print('Processed {} hierarchical components'.format(compcount))
     #
     # Process all entries to find entries not in hierarchical BOM and sub-projects
-    print('Processing remaining components ...')
+    print('Processing other components ...')
     compcount = 0
     for key, bom_component in compsdict.items():
         if 'componentVersion' not in bom_component.keys():
@@ -700,13 +701,12 @@ def process_project(projspdxname, hcomps, compsdict, comp_data_dict):
                     subprojspdxname = clean_for_spdx(bom_component['componentName'] + '/' +
                                                      bom_component['componentVersionName'])
 
-                    process_project(subprojspdxname, sub_hierarchical_bom, compsdict, comp_data_dict)
+                    compcount += process_project(subprojspdxname, sub_hierarchical_bom, compsdict, comp_data_dict)
                     break
                 break
 
     print('Processed {} other components'.format(compcount))
-
-    print('Processed {} Overall components'.format(len(processed_comp_list)))
+    # print('Output {} Overall components'.format(len(processed_comp_list)))
 
     return
 
