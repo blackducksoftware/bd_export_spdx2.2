@@ -23,6 +23,9 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 processed_comp_list = []
 spdx_custom_lics = []
 
+# The name of a custom attribute which should override the default package supplier
+SBOM_CUSTOM_SUPPLIER_NAME = "PackageSupplier"
+
 usage_dict = {
     "SOURCE_CODE": "CONTAINS",
     "STATICALLY_LINKED": "STATIC_LINK",
@@ -341,21 +344,15 @@ def calculate_purl(namespace, extid):
 
 
 def get_package_supplier(comp):
-    fields_url = next((item for item in comp['_meta']['links'] if item["rel"] == "custom-fields"), None)
-
-    # MWHITE TO FIX THIS
-
-    # fields_val = bd.get_resource(fields_url['href'])
-    # if not fields_url:
-    #     return ''
-    #
-    # fields_val = bd.get_resource('custom-fields', comp)
-    #
-    # sbom_field = next((item for item in fields_val if item['label'] == "SBOM:PackageSupplier"), None)
-    #
-    # if sbom_field is not None and len(sbom_field['values']) > 0:
-    #    supplier_name = sbom_field['values'][0]
-    #    return supplier_name
+    
+    fields_val = bd.get_resource('custom-fields', comp)
+    
+    sbom_field = next((item for item in fields_val if item['label'] == SBOM_CUSTOM_SUPPLIER_NAME), None)
+    
+    if sbom_field is not None and len(sbom_field['values']) > 0:
+       supplier_name = sbom_field['values'][0]
+       return supplier_name
+    
     return
 
 
