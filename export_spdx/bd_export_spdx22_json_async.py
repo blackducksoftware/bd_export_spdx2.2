@@ -447,7 +447,7 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
                 elif firstType == 'FILE_DEPENDENCY_TRANSITIVE':
                     packageinfo = packageinfo + " as a transitive dependency"
 
-        packagesuppliername = 'PackageSupplier: '
+        packagesuppliername = ''
 
         if bom_package_supplier is not None and len(bom_package_supplier) > 0:
             packageinfo = packageinfo + ", the PackageSupplier was provided by the user at the BOM level"
@@ -477,6 +477,7 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
             # PackageChecksum: SHA1: 85ed0817af83a24ad8da68c2b5094de69833983c,
             "licenseConcluded": quote(lic_string),
             "licenseDeclared": quote(lic_string),
+            "packageSupplier": packagesuppliername,
             # PackageLicenseComments: <text>Other versions available for a commercial license</text>,
             "filesAnalyzed": False,
             "packageComment": quote(packageinfo),
