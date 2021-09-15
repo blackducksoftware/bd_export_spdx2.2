@@ -1104,7 +1104,7 @@ def run():
 
     try:
         with open(args.output, 'w') as outfile:
-            json.dump(spdx, outfile)
+            json.dump(spdx, outfile, indent=4, sort_keys=True)
 
     except Exception as e:
         print('ERROR: Unable to create output report file \n' + str(e))
