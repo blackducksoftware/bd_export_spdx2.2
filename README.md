@@ -23,6 +23,7 @@ Other options can be specified to reduce the number of API calls to speed up scr
 ## Version 0.13 Async
 
 Changes to improve JSON formatting, minimum SPDX required fields, add package supplier info in custom field.
+
 ## Version 0.12 Async
 
 This version uses the aiohttp library to perform asynchronous download of component data, reducing the time to process projects by 3x to 6x.
@@ -69,6 +70,8 @@ The program can be invoked as follows:
                                Black Duck API token
          --blackduck_trust_certs
                                Trust Black Duck server certificates if unsigned
+         --blackduck_timeout   Change the server connection timeout (default 15 seconds)
+         --debug               Add reporting of processed components
 
 
 If `project_name` does not match a single project then all matching projects will be listed and the script will terminate.
