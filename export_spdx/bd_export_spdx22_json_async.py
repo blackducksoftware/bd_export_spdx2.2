@@ -14,7 +14,7 @@ import time
 
 from blackduck import Client
 
-script_version = "0.12 Async"
+script_version = "0.13 Async"
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
 logging.getLogger("requests").setLevel(logging.WARNING)
