@@ -23,6 +23,9 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 processed_comp_list = []
 spdx_custom_lics = []
 
+# The name of a custom attribute which should override the default package supplier
+SBOM_CUSTOM_SUPPLIER_NAME = "PackageSupplier"
+
 usage_dict = {
     "SOURCE_CODE": "CONTAINS",
     "STATICALLY_LINKED": "STATIC_LINK",
@@ -341,21 +344,15 @@ def calculate_purl(namespace, extid):
 
 
 def get_package_supplier(comp):
-    fields_url = next((item for item in comp['_meta']['links'] if item["rel"] == "custom-fields"), None)
-
-    # MWHITE TO FIX THIS
-
-    # fields_val = bd.get_resource(fields_url['href'])
-    # if not fields_url:
-    #     return ''
-    #
-    # fields_val = bd.get_resource('custom-fields', comp)
-    #
-    # sbom_field = next((item for item in fields_val if item['label'] == "SBOM:PackageSupplier"), None)
-    #
-    # if sbom_field is not None and len(sbom_field['values']) > 0:
-    #    supplier_name = sbom_field['values'][0]
-    #    return supplier_name
+    
+    fields_val = bd.get_resource('custom-fields', comp)
+    
+    sbom_field = next((item for item in fields_val if item['label'] == SBOM_CUSTOM_SUPPLIER_NAME), None)
+    
+    if sbom_field is not None and len(sbom_field['values']) > 0:
+       supplier_name = sbom_field['values'][0]
+       return supplier_name
+    
     return
 
 
@@ -447,7 +444,7 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
                 elif firstType == 'FILE_DEPENDENCY_TRANSITIVE':
                     packageinfo = packageinfo + " as a transitive dependency"
 
-        packagesuppliername = 'PackageSupplier: '
+        packagesuppliername = ''
 
         if bom_package_supplier is not None and len(bom_package_supplier) > 0:
             packageinfo = packageinfo + ", the PackageSupplier was provided by the user at the BOM level"
@@ -477,6 +474,7 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
             # PackageChecksum: SHA1: 85ed0817af83a24ad8da68c2b5094de69833983c,
             "licenseConcluded": quote(lic_string),
             "licenseDeclared": quote(lic_string),
+            "packageSupplier": packagesuppliername,
             # PackageLicenseComments: <text>Other versions available for a commercial license</text>,
             "filesAnalyzed": False,
             "packageComment": quote(packageinfo),
@@ -1070,18 +1068,21 @@ def run():
         "name": quote(project['name']),
         "versionInfo": quote(version['versionName']),
         # "packageFileName":  quote(package_file),
-        # "downloadLocation": quote(download_url),
+        "licenseConcluded": "NOASSERTION",
+        "licenseDeclared": "NOASSERTION",
+        "downloadLocation": "NOASSERTION",
+        "packageComment": "Generated top level package representing Black Duck project",
         # PackageChecksum: SHA1: 85ed0817af83a24ad8da68c2b5094de69833983c,
         # "licenseConcluded": quote(lic_string),
         # "licenseDeclared": quote(lic_string),
         # PackageLicenseComments: <text>Other versions available for a commercial license</text>,
-        # "filesAnalyzed": False,
+        "filesAnalyzed": False,
         # "ExternalRef: SECURITY cpe23Type {}".format(cpe),
         # "ExternalRef: PACKAGE-MANAGER purl pkg:" + pkg,
         # ExternalRef: PERSISTENT-ID swh swh:1:cnt:94a9ed024d3859793618152ea559a168bbcbb5e2,
         # ExternalRef: OTHER LocationRef-acmeforge acmecorp/acmenator/4.1.3-alpha,
         # ExternalRefComment: This is the external ref for Acme,
-        # "copyrightText": quote(copyrights),
+        "copyrightText": "NOASSERTION",
         # annotations,
     }
     if 'description' in project.keys():
@@ -1104,7 +1105,7 @@ def run():
 
     try:
         with open(args.output, 'w') as outfile:
-            json.dump(spdx, outfile)
+            json.dump(spdx, outfile, indent=4, sort_keys=True)
 
     except Exception as e:
         print('ERROR: Unable to create output report file \n' + str(e))
