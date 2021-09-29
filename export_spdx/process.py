@@ -285,6 +285,7 @@ def process_project(project, version, projspdxname, hcomps, bearer_token):
         # if bom_component['matchTypes'][0] == "MANUAL_BOM_COMPONENT":
         if config.args.debug:
             print(compname)
+        compcount += 1
 
         pkgname = process_comp(bom_compsdict, bom_component, comp_data_dict)
 
@@ -307,7 +308,6 @@ def process_project(project, version, projspdxname, hcomps, bearer_token):
                         bom_component['componentName'] + '/' + bom_component['componentVersionName']))
 
                     res = globals.bd.list_resources(parent=sub_ver)
-                    # TODO: WORK OUT WHAT THIS LOGIC IS FOR
                     # if 'components' in res:
                     #     sub_comps = globals.bd.get_resource('components', parent=sub_ver)
                     # else:
