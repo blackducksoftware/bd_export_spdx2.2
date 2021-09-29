@@ -25,6 +25,6 @@ setuptools.setup(
     ],
     python_requires='>=3.0',
     entry_points={
-        'console_scripts': ['bd_export_spdx=export_spdx.main:run'],
+        'console_scripts': ['bd_export_spdx=main:run'],
     },
 )
