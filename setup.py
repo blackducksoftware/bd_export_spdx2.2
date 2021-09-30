@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="bd_export_spdx2.2",
-    version="0.14-Async",
+    version="0.15-4",
     author="Matthew Brady",
     author_email="w3matt@gmail.com",
     description="Export an SPDX version 2.2 JSON file from a Black Duck project.",
@@ -25,6 +25,6 @@ setuptools.setup(
     ],
     python_requires='>=3.0',
     entry_points={
-        'console_scripts': ['bd_export_spdx=main:run'],
+        'console_scripts': ['bd_export_spdx=export_spdx.main:main'],
     },
 )

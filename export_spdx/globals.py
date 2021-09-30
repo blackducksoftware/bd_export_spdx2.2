@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-script_version = "0.14 Async"
+script_version = "0.15 Async"
 
 processed_comp_list = []
 spdx_custom_lics = []
