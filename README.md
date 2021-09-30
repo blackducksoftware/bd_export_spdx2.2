@@ -1,4 +1,4 @@
-# Synopsys Black Duck - bd_export_spdx22_json.py
+# Synopsys Black Duck - bd_export_spdx22_json.py v0.14 Async
 # OVERVIEW
 
 This script is provided under an OSS license (specified in the LICENSE file) to allow users to export SPDX version 2.2 in JSON format from Black Duck projects.
@@ -18,6 +18,19 @@ The output file in SPDX JSON format can optionally be specified; the project nam
 The optional `--recursive` option will traverse sub-projects to include all leaf components. If not specified, and sub-projects exist in the specified project, then the sub-projects will be skipped.
 
 Other options can be specified to reduce the number of API calls to speed up script execution.
+
+# LATEST UPDATES
+## Version 0.14 Async
+
+Refactored the script to multiple modules and some other minor changes
+
+## Version 0.13 Async
+
+Changes to improve JSON formatting, minimum SPDX required fields, add package supplier info in custom field.
+
+## Version 0.12 Async
+
+This version uses the aiohttp library to perform asynchronous download of component data, reducing the time to process projects by 3x to 6x.
 
 # PREREQUISITES
 
@@ -61,6 +74,8 @@ The program can be invoked as follows:
                                Black Duck API token
          --blackduck_trust_certs
                                Trust Black Duck server certificates if unsigned
+         --blackduck_timeout   Change the server connection timeout (default 15 seconds)
+         --debug               Add reporting of processed components
 
 
 If `project_name` does not match a single project then all matching projects will be listed and the script will terminate.
@@ -82,3 +97,10 @@ The `--no_copyrights` option will stop the processing of component copyright tex
 The `--no_files` option will stop the processing of component filename (PackageFileName tag) reducing the number of API calls and time to complete the script.
 
 The `--basic` or `-b` option will stop the processing of copy, download link or package file (same as using `--no_downloads --no_copyrights --no_files` options) reducing the number of API calls and time to complete the script.
+
+# PACKAGE SUPPLIER NAME CONFIGURATION
+
+By default for OSS components, Black Duck with use the external reference (forge name) to populate the 'packageSupplier' SPDX field for components (and the 'externalRefs' 'packageLocator' entries).
+For custom components in the BOM, users will need to manually populate this.
+Create a custom fields for 'BOM Component' entries with name 'PackageSupplier' and type 'Text'.
+Updating the custom field for custom (or KB) components will replace the value in the output SPDX file.
