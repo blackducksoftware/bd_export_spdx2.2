@@ -4,6 +4,7 @@ import re
 import aiohttp
 import asyncio
 import time
+import platform
 
 from export_spdx import globals
 from export_spdx import spdx
@@ -233,6 +234,8 @@ def process_project(project, version, projspdxname, hcomps, bearer_token):
         print("--- %s seconds ---" % (time.time() - start_time))
 
     start_time = time.time()
+    if platform.system() == "Windows":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     comp_data_dict = asyncio.run(async_main(bom_compsdict, bearer_token, version))
     if config.args.debug:
         print("--- %s seconds ---" % (time.time() - start_time))

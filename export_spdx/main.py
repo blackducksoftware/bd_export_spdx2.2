@@ -11,8 +11,8 @@ from export_spdx import process
 from export_spdx import projects
 
 logging.basicConfig(format='%(asctime)s:%(levelname)s:%(message)s', stream=sys.stderr, level=logging.INFO)
-logging.getLogger("requests").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("requests").setLevel(logging.INFO)
+logging.getLogger("urllib3").setLevel(logging.INFO)
 
 url = os.environ.get('BLACKDUCK_URL')
 if config.args.blackduck_url:
