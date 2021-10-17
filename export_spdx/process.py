@@ -34,7 +34,7 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
     if cver not in globals.processed_comp_list:
         download_url = "NOASSERTION"
 
-        fcomp = globals.bd.get_json(tcomp['component'])  # CHECK THIS
+        # fcomp = globals.bd.get_json(tcomp['component'])  # CHECK THIS
         #
         openhub_url = next((item for item in bomentry['_meta']['links'] if item["rel"] == "openhub"), None)
         if config.args.download_loc and openhub_url is not None:
@@ -66,10 +66,9 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
         component_package_supplier = ''
 
         homepage = 'NOASSERTION'
-        if 'url' in fcomp.keys():
-            homepage = fcomp['url']  # CHECK THIS
+        homepage = comp_data_dict[cver]['url']
 
-        bom_package_supplier = data.get_package_supplier(bomentry)
+        bom_package_supplier = comp_data_dict[cver]['supplier']
 
         packageinfo = "This is a"
 
@@ -356,6 +355,8 @@ async def async_main(compsdict, token, ver):
         comment_tasks = []
         file_tasks = []
         lic_tasks = []
+        url_tasks = []
+        supplier_tasks = []
         # child_tasks = []
         for url, comp in compsdict.items():
             if config.args.debug:
@@ -372,14 +373,20 @@ async def async_main(compsdict, token, ver):
             lic_task = asyncio.ensure_future(async_get_licenses(session, comp, token))
             lic_tasks.append(lic_task)
 
-            # child_task = asyncio.ensure_future(async_get_children(session, ver, comp, token))
-            # child_tasks.append(child_task)
+            url_task = asyncio.ensure_future(async_get_url(session, comp, token))
+            url_tasks.append(url_task)
+
+            supplier_task = asyncio.ensure_future(async_get_supplier(session, comp, token))
+            supplier_tasks.append(url_task)
 
         print('Getting component data ... ')
         all_copyrights = dict(await asyncio.gather(*copyright_tasks))
         all_comments = dict(await asyncio.gather(*comment_tasks))
         all_files = dict(await asyncio.gather(*file_tasks))
         all_lics = dict(await asyncio.gather(*lic_tasks))
+        all_urls = dict(await asyncio.gather(*url_tasks))
+        all_suppliers = dict(await asyncio.gather(*supplier_tasks))
+
         # all_children = dict(await asyncio.gather(*child_tasks))
         await asyncio.sleep(0.250)
 
@@ -390,6 +397,8 @@ async def async_main(compsdict, token, ver):
             'comments': all_comments[cvurl],
             'files': all_files[cvurl],
             'licenses': all_lics[cvurl],
+            'url': all_urls[cvurl],
+            'supplier': all_suppliers[cvurl]
         }
     return comp_data_dict
 
@@ -541,3 +550,55 @@ async def async_get_licenses(session, lcomp, token):
             lic_string = "(" + lic_string + ")"
 
     return lcomp['componentVersion'], lic_string
+
+
+async def async_get_url(session, comp, token):
+    if not globals.verify:
+        ssl = False
+    else:
+        ssl = None
+
+    url = "NOASSERTION"
+    if 'component' not in comp.keys():
+        return comp['componentVersion'], url
+
+    link = comp['component']
+    headers = {
+        'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+        'Authorization': f'Bearer {token}',
+    }
+    # resp = globals.bd.get_json(thishref, headers=headers)
+    async with session.get(link, headers=headers, ssl=ssl) as resp:
+        result_data = await resp.json()
+        if 'url' in result_data.keys():
+            url = result_data['url']
+    return comp['componentVersion'], url
+
+
+async def async_get_supplier(session, comp, token):
+    if not globals.verify:
+        ssl = False
+    else:
+        ssl = None
+
+    supplier_name = ''
+    hrefs = comp['_meta']['links']
+
+    link = next((item for item in hrefs if item["rel"] == "custom-fields"), None)
+    if link:
+        thishref = link['href']
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
+        }
+
+        async with session.get(thishref, headers=headers, ssl=ssl) as resp:
+            result_data = await resp.json()
+            cfields = result_data['items']
+            sbom_field = next((item for item in cfields if item['label'] == globals.SBOM_CUSTOM_SUPPLIER_NAME),
+                              None)
+
+            if sbom_field is not None and len(sbom_field['values']) > 0:
+                supplier_name = sbom_field['values'][0]
+
+    return comp['componentVersion'], supplier_name

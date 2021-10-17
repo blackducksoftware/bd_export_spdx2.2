@@ -110,17 +110,17 @@ def calculate_purl(namespace, extid):
 
 
 def get_package_supplier(comp):
-    res = globals.bd.list_resources(comp)
-    if 'custom-fields' in res:
-        fields_val = globals.bd.get_resource('custom-fields', comp)
-    else:
-        return ''
-    
-    sbom_field = next((item for item in fields_val if item['label'] == globals.SBOM_CUSTOM_SUPPLIER_NAME), None)
-    
-    if sbom_field is not None and len(sbom_field['values']) > 0:
-        supplier_name = sbom_field['values'][0]
-        return supplier_name
+    # res = globals.bd.list_resources(comp)
+    # if 'custom-fields' in res:
+    #     fields_val = globals.bd.get_resource('custom-fields', comp)
+    # else:
+    #     return ''
+    #
+    # sbom_field = next((item for item in fields_val if item['label'] == globals.SBOM_CUSTOM_SUPPLIER_NAME), None)
+    #
+    # if sbom_field is not None and len(sbom_field['values']) > 0:
+    #     supplier_name = sbom_field['values'][0]
+    #     return supplier_name
     
     return ''
 
