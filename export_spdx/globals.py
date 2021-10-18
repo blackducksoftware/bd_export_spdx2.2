@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-script_version = "0.19"
+script_version = "0.20"
 
 processed_comp_list = []
 spdx_custom_lics = []

@@ -1,4 +1,4 @@
-# Synopsys Black Duck - bd_export_spdx22_json.py v0.19 Async
+# Synopsys Black Duck - bd_export_spdx22_json.py v0.20 Async
 # OVERVIEW
 
 This script is provided under an OSS license (specified in the LICENSE file) to allow users to export SPDX version 2.2 in JSON format from Black Duck projects.
@@ -20,7 +20,7 @@ The optional `--recursive` option will traverse sub-projects to include all leaf
 Other options can be specified to reduce the number of API calls to speed up script execution.
 
 # LATEST UPDATES
-## Version 0.19 Async
+## Version 0.19-0.20 Async
 
 Making all component data requests async delivering additional 2-3x overall speed improvements
 

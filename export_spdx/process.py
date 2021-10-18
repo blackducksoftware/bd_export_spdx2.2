@@ -65,7 +65,7 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
 
         component_package_supplier = ''
 
-        homepage = 'NOASSERTION'
+        # homepage = 'NOASSERTION'
         homepage = comp_data_dict[cver]['url']
 
         bom_package_supplier = comp_data_dict[cver]['supplier']
@@ -377,7 +377,7 @@ async def async_main(compsdict, token, ver):
             url_tasks.append(url_task)
 
             supplier_task = asyncio.ensure_future(async_get_supplier(session, comp, token))
-            supplier_tasks.append(url_task)
+            supplier_tasks.append(supplier_task)
 
         print('Getting component data ... ')
         all_copyrights = dict(await asyncio.gather(*copyright_tasks))
