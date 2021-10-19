@@ -29,8 +29,10 @@ parser.add_argument("-b", "--basic",
                     help='''Do not export copyright, download link  or package file data (speeds up processing -
                     same as using "--download_loc --no_copyrights --no_files")''',
                     action='store_true')
-parser.add_argument("--blackduck_url", type=str, help="BLACKDUCK_URL", default="")
-parser.add_argument("--blackduck_api_token", type=str, help="BLACKDUCK_API_TOKEN", default="")
+parser.add_argument("--blackduck_url", type=str,
+                    help="Black Duck server URL (can also be set as env. var. BLACKDUCK_URL)", default="")
+parser.add_argument("--blackduck_api_token", type=str,
+                    help="Black Duck API token URL (can also be set as env. var. BLACKDUCK_API_TOKEN)", default="")
 parser.add_argument("--blackduck_trust_certs", help="BLACKDUCK trust certs", action='store_true')
 parser.add_argument("--blackduck_timeout", help="BD Server requests timeout (seconds - default 15)", default=15)
 parser.add_argument("--debug", help="Turn on debug messages", action='store_true')
