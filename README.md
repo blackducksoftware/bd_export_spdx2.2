@@ -50,7 +50,7 @@ This version uses the aiohttp library to perform asynchronous download of compon
 
 Install the package using the command:
 
-        pip3 install -i https://test.pypi.org/simple/ bd-export-spdx2.2
+        pip3 install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple bd-export-spdx2.2
 
 # USAGE
 
