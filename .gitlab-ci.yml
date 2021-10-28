@@ -1,0 +1,64 @@
+stages:
+  - build
+  - pop
+
+include:
+  - project: 'releng/common-gitlab-ci'
+    ref: 'master'
+    file:
+      - /pop-blackduck.yml
+      - /pop-coverity.yml
+
+workflow:
+  rules:
+    - if: $CI_MERGE_REQUEST_ID
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: always
+
+assemble:
+  stage: build
+  image: releng/base-gitlab-runner:jdk11-python3.8-git
+  script:
+    - python3 setup.py sdist bdist_wheel
+  artifacts:
+    expire_in: 10 min
+    paths:
+      - 'dist/*'
+  rules:
+    - if: '$CI_PIPELINE_SOURCE != "schedule"'
+
+popBlackduckRapidScan:
+  stage: build
+  extends: .popBlackduck_python
+  rules:
+    - if: '$CI_PIPELINE_SOURCE != "schedule"'
+
+popBlackduckSource:
+  stage: pop
+  image: releng/base-gitlab-runner:jdk11-python3.8-git
+  extends: .popBlackduckSource
+  variables:
+    BLACKDUCK_PROJECT_NAME: BD_EXPORT_SPDX2.2
+    DETECT_ADDITIONAL_ARGUMENTS: ' --detect.python.path=/usr/bin/python3 '
+    DETECT_TRUST_CERT: 'true'
+    PROJECT_VERSION_PROPERTIES_FILE: 'setup.py'
+    PROJECT_VERSION_PROPERTY: 'version'
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
+  before_script:
+    - python3 setup.py install
+
+popCoverity:
+  stage: pop
+  extends: .popCoverity_python
+  variables:
+    COVERITY_PROJECT: 'BD_EXPORT_SPDX2.2'
+    PYTHON_VER: '3.8'
+    PROJECT_VERSION_PROPERTIES_FILE: 'setup.py'
+    PROJECT_VERSION_PROPERTY: 'version'
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: always
