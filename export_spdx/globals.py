@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-script_version = "0.20"
+script_version = "0.21"
 
 processed_comp_list = []
-spdx_custom_lics = []
+spdx_lics = []
 
 # The name of a custom attribute which should override the default package supplier
 SBOM_CUSTOM_SUPPLIER_NAME = "PackageSupplier"

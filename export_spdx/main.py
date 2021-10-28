@@ -2,6 +2,7 @@
 import logging
 import sys
 import os
+import datetime
 
 from blackduck import Client
 from export_spdx import globals
@@ -57,12 +58,14 @@ def run():
     globals.spdx_custom_lics = []
 
     toppackage = spdx.clean_for_spdx("SPDXRef-Package-" + project['name'] + "-" + version['versionName'])
+    mytime = datetime.datetime.now()
 
     # Define TOP Document entries
     globals.spdx["SPDXID"] = "SPDXRef-DOCUMENT"
     globals.spdx["spdxVersion"] = "SPDX-2.2"
     globals.spdx["creationInfo"] = {
-        "created": spdx.quote(version['createdAt'].split('.')[0] + 'Z'),
+        # "created": spdx.quote(version['createdAt'].split('.')[0] + 'Z'),
+        "created": spdx.quote(mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")),
         "creators": ["Tool: Black Duck SPDX export script https://github.com/matthewb66/bd_export_spdx2.2"],
         "licenseListVersion": "3.9",
     }

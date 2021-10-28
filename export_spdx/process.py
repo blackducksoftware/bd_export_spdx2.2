@@ -58,7 +58,7 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
 
         desc = 'NOASSERTION'
         if 'description' in tcomp.keys():
-            desc = re.sub('[^a-zA-Z.()\d\s\-:]', '', bomentry['description'])
+            desc = re.sub("[^a-zA-Z.()\d\s\-:]", '', bomentry['description'])
 
         annotations = comp_data_dict[cver]['comments']
         lic_string = comp_data_dict[cver]['licenses']
@@ -126,6 +126,7 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
             # PackageChecksum: SHA1: 85ed0817af83a24ad8da68c2b5094de69833983c,
             "licenseConcluded": spdx.quote(lic_string),
             "licenseDeclared": spdx.quote(lic_string),
+            "licenseComments": "The concluded license was taken from the package level",
             "packageSupplier": packagesuppliername,
             # PackageLicenseComments: <text>Other versions available for a commercial license</text>,
             "filesAnalyzed": False,
@@ -454,7 +455,7 @@ async def async_get_comments(session, comp, token):
         async with session.get(thishref, headers=headers, ssl=ssl) as resp:
             result_data = await resp.json()
             mytime = datetime.datetime.now()
-            mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            # mytime.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             for comment in result_data['items']:
                 annotations.append(
                     {
@@ -521,7 +522,7 @@ async def async_get_licenses(session, lcomp, token):
             else:
                 # Custom license
                 try:
-                    thislic = 'LicenseRef-' + spdx.clean_for_spdx(lic['licenseDisplay'])
+                    thislic = 'LicenseRef-' + spdx.clean_for_spdx(lic['licenseDisplay'] + '-' + lcomp['componentName'])
                     lic_ref = lic['license'].split("/")[-1]
                     headers = {
                         'accept': "text/plain",
@@ -530,14 +531,15 @@ async def async_get_licenses(session, lcomp, token):
                     # resp = globals.bd.session.get('/api/licenses/' + lic_ref + '/text', headers=headers)
                     thishref = f"{globals.bd.base_url}/api/licenses/{lic_ref}/text"
                     async with session.get(thishref, headers=headers, ssl=ssl) as resp:
-                        lic_text = await resp.content.decode("utf-8")
-                        if thislic not in globals.spdx_custom_lics:
+                        # lic_text = await resp.content.decode("utf-8")
+                        lic_text = await resp.text('utf-8')
+                        if thislic not in globals.spdx_lics:
                             mydict = {
                                 'licenseID': spdx.quote(thislic),
                                 'extractedText': spdx.quote(lic_text)
                             }
                             globals.spdx["hasExtractedLicensingInfos"].append(mydict)
-                            globals.spdx_custom_lics.append(thislic)
+                            globals.spdx_lics.append(thislic)
                 except Exception as exc:
                     pass
             if lic_string == "NOASSERTION":
