@@ -507,10 +507,12 @@ async def async_get_licenses(session, lcomp, token):
     # Get licenses
     lic_string = "NOASSERTION"
     quotes = False
+    license_type = "NONE"
     if 'licenses' in lcomp.keys():
         proc_item = lcomp['licenses']
 
         if len(proc_item[0]['licenses']) > 1:
+            license_type = proc_item[0]['licenseType']
             proc_item = proc_item[0]['licenses']
 
         for lic in proc_item:
@@ -545,7 +547,10 @@ async def async_get_licenses(session, lcomp, token):
             if lic_string == "NOASSERTION":
                 lic_string = thislic
             else:
-                lic_string = lic_string + " AND " + thislic
+                if license_type == "DISJUNCTIVE":
+                    lic_string = lic_string + " OR " + thislic
+                else:
+                    lic_string = lic_string + " AND " + thislic
                 quotes = True
 
         if quotes:
