@@ -203,8 +203,9 @@ def process_children(pkgname, compverurl, child_url, indenttext, comps_dict, com
 
         if len(child['_meta']['links']) > 2:
             thisref = [d['href'] for d in child['_meta']['links'] if d['rel'] == 'children']
-            count += process_children(childpkgname, child['componentVersion'], thisref[0], "    " + indenttext,
-                                      comps_dict, comp_data_dict)
+            if len(thisref) > 0:
+                count += process_children(childpkgname, child['componentVersion'], thisref[0], "    " + indenttext,
+                                          comps_dict, comp_data_dict)
 
     return count
 
