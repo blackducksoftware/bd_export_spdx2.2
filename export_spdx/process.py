@@ -224,12 +224,12 @@ def process_comp_relationship(parentname, childname, mtypes):
                 break
 
 
-def process_project(project, version, projspdxname, hcomps, bearer_token):
+def process_project(project, version, projspdxname, hcomps, bearer_token, exclude_ignored=False):
     # project, version = check_projver(proj, ver)
 
     start_time = time.time()
     print('Getting component list ... ', end='')
-    bom_compsdict = data.get_bom_components(version)
+    bom_compsdict = data.get_bom_components(version, exclude_ignored)
     print("({})".format(str(len(bom_compsdict))))
     if config.args.debug:
         print("--- %s seconds ---" % (time.time() - start_time))

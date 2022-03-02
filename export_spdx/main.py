@@ -23,6 +23,10 @@ api = os.environ.get('BLACKDUCK_API_TOKEN')
 if config.args.blackduck_api_token:
     api = config.args.blackduck_api_token
 
+exclude_ignored_components = os.environ.get('EXCLUDE_IGNORED_COMPONENTS')
+if config.args.exclude_ignored_components:
+    exclude_ignored_components = config.args.exclude_ignored_components
+
 if config.args.blackduck_trust_certs:
     globals.verify = False
 
@@ -130,7 +134,7 @@ def run():
     else:
         hierarchical_bom = []
 
-    process.process_project(project, version, toppackage, hierarchical_bom, bearer_token)
+    process.process_project(project, version, toppackage, hierarchical_bom, bearer_token, exclude_ignored_components)
 
     print("Done")
 
