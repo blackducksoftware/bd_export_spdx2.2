@@ -125,7 +125,7 @@ def get_package_supplier(comp):
     return ''
 
 
-def get_bom_components(verdict):
+def get_bom_components(verdict, exclude_ignored=False):
     comp_dict = {}
     res = globals.bd.list_resources(verdict)
     # if 'components' not in res:
@@ -141,6 +141,8 @@ def get_bom_components(verdict):
     #     bom_comps = globals.bd.get_resource('components', parent=ver)
     for comp in bom_comps:
         if 'componentVersion' not in comp:
+            continue
+        if 'ignored' in comp and exclude_ignored and comp['ignored']:
             continue
         compver = comp['componentVersion']
 

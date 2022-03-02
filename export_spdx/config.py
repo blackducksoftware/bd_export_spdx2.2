@@ -29,6 +29,8 @@ parser.add_argument("-b", "--basic",
                     help='''Do not export copyright, download link  or package file data (speeds up processing -
                     same as using "--download_loc --no_copyrights --no_files")''',
                     action='store_true')
+parser.add_argument("--exclude_ignored_components",
+                    help="Exclude components marked ignored in the BOM", action='store_true')
 parser.add_argument("--blackduck_url", type=str,
                     help="Black Duck server URL (can also be set as env. var. BLACKDUCK_URL)", default="")
 parser.add_argument("--blackduck_api_token", type=str,
