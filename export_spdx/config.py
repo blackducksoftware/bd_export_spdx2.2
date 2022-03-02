@@ -29,7 +29,7 @@ parser.add_argument("-b", "--basic",
                     help='''Do not export copyright, download link  or package file data (speeds up processing -
                     same as using "--download_loc --no_copyrights --no_files")''',
                     action='store_true')
-parser.add_argument("--exclude_ignored_components",
+parser.add_argument("-x", "--exclude_ignored_components",
                     help="Exclude components marked ignored in the BOM", action='store_true')
 parser.add_argument("--remove_spdx_fields",
                     help='''Specify JSON fields to remove from SPDX final output using the following modified JSON
