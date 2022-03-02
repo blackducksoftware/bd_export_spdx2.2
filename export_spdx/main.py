@@ -27,6 +27,10 @@ exclude_ignored_components = os.environ.get('EXCLUDE_IGNORED_COMPONENTS')
 if config.args.exclude_ignored_components:
     exclude_ignored_components = config.args.exclude_ignored_components
 
+remove_spdx_fields = os.environ.get('REMOVE_SPDX_FIELDS')
+if config.args.remove_spdx_fields:
+    remove_spdx_fields = config.args.remove_spdx_fields
+
 if config.args.blackduck_trust_certs:
     globals.verify = False
 
@@ -138,6 +142,28 @@ def run():
 
     print("Done")
 
+    # deal with filtering out certain fields from the final output based on command line input
+    input_strings = remove_spdx_fields.split(',')
+    input_strings = [string.strip() for string in input_strings]
+
+    entrypoint = globals.spdx
+
+    def search_and_remove(json_object, levels):
+        level = levels[0]
+        if len(levels) == 1:
+            json_object.pop(level)
+        if level == '[*]':
+            for item in json_object:
+                search_and_remove(item, levels[1:])
+        else:
+            if level in json_object:
+                search_and_remove(json_object[level], levels[1:])
+
+    for input_string in input_strings:
+        spdx_filter = input_string.split('.')
+        search_and_remove(entrypoint, spdx_filter)
+
+    # write the result to the file system
     spdx.write_spdx_file(globals.spdx)
 
 
