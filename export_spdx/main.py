@@ -27,9 +27,9 @@ exclude_ignored_components = os.environ.get('EXCLUDE_IGNORED_COMPONENTS')
 if config.args.exclude_ignored_components:
     exclude_ignored_components = config.args.exclude_ignored_components
 
-remove_spdx_fields = os.environ.get('REMOVE_SPDX_FIELDS')
-if config.args.remove_spdx_fields:
-    remove_spdx_fields = config.args.remove_spdx_fields
+modify_spdx_fields = os.environ.get('MODIFY_SPDX_FIELDS')
+if config.args.modify_spdx_fields:
+    modify_spdx_fields = config.args.modify_spdx_fields
 
 if config.args.blackduck_trust_certs:
     globals.verify = False
@@ -143,25 +143,31 @@ def run():
     print("Done")
 
     # deal with filtering out certain fields from the final output based on command line input
-    input_strings = remove_spdx_fields.split(',')
-    input_strings = [string.strip() for string in input_strings]
+    modification_instructions = modify_spdx_fields.split(',')
+    modification_instructions = [string.strip() for string in modification_instructions]
 
     entrypoint = globals.spdx
 
-    def search_and_remove(json_object, levels):
+    def search_and_remove(json_object, levels, val):
         level = levels[0]
         if len(levels) == 1:
             json_object.pop(level)
+            json_object[level] = val
+            return
         if level == '[*]':
             for item in json_object:
-                search_and_remove(item, levels[1:])
+                search_and_remove(item, levels[1:], val)
         else:
             if level in json_object:
-                search_and_remove(json_object[level], levels[1:])
+                search_and_remove(json_object[level], levels[1:], val)
 
-    for input_string in input_strings:
-        spdx_filter = input_string.split('.')
-        search_and_remove(entrypoint, spdx_filter)
+    for instruction in modification_instructions:
+        inst = instruction.split(';')
+        field_descriptor = inst[0]
+        modified_value = inst[1]
+        fields = field_descriptor.split('.')
+        print(f'Replacing {field_descriptor} with {modified_value}')
+        search_and_remove(entrypoint, fields, modified_value)
 
     # write the result to the file system
     spdx.write_spdx_file(globals.spdx)
