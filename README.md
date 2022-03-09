@@ -5,6 +5,8 @@ This script is provided under an OSS license (specified in the LICENSE file) to 
 
 It does not represent any extension of licensed functionality of Synopsys software itself and is provided as-is, without warranty or liability.
 
+If you have comments or issues, please raise a GitHub issue here. Synopsys support is not able to respond to support tickets for this OSS utility.
+
 # DESCRIPTION
 
 The script is designed to export SPDX version 2.2 in JSON format from a Black Duck project.
