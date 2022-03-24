@@ -31,6 +31,13 @@ parser.add_argument("-b", "--basic",
                     action='store_true')
 parser.add_argument("-x", "--exclude_ignored_components",
                     help="Exclude components marked ignored in the BOM", action='store_true')
+parser.add_argument("--modify_spdx_fields",
+                    help='''Specify JSON fields to modify in SPDX final output using the following modified JSON
+                    representation: "packages.[*].annotations.[*].annotator;Organization: Acme,
+                     packages.[*].annotations.[*].annotationType;REVIEW
+                    ".  This would set all package annotation annotator entries to "Organization: Acme" and all 
+                    annotation types to "REVIEW".''',
+                    default="")
 parser.add_argument("--blackduck_url", type=str,
                     help="Black Duck server URL (can also be set as env. var. BLACKDUCK_URL)", default="")
 parser.add_argument("--blackduck_api_token", type=str,
