@@ -1,4 +1,4 @@
-# Synopsys Black Duck - bd_export_spdx22_json.py v0.23
+# Synopsys Black Duck - bd_export_spdx22_json.py v0.24
 # OVERVIEW
 
 This script is provided under an OSS license (specified in the LICENSE file) to allow users to export SPDX version 2.2 in JSON format from Black Duck projects.
@@ -22,6 +22,10 @@ The optional `--recursive` option will traverse sub-projects to include all leaf
 Other options can be specified to reduce the number of API calls to speed up script execution.
 
 # LATEST UPDATES
+
+## Version 0.24
+
+Fixed issue with API limits introduced in 2022.2.
 
 ## Version 0.23
 
@@ -67,17 +71,24 @@ Install the package using the command:
 
 The program can be invoked as follows:
 
-       usage: bd_export_spdx [-h] [-v] [-o OUTPUT] [-r] [--download_loc] [--no_copyrights] [--no_files] [-b] [--blackduck_url BLACKDUCK_URL]
+       usage: bd-export-spdx [-h] [-v] [-o OUTPUT] [-r] [--download_loc] [--no_copyrights] [--no_files] [-b] [--blackduck_url BLACKDUCK_URL]
                                [--blackduck_api_token BLACKDUCK_API_TOKEN] [--blackduck_trust_certs]
                                project_name project_version
 
-       "Export SPDX JSON format file for the given project and version"
+       Export SPDX JSON format file for the given project and version
 
        positional arguments:
          project_name          Black Duck project name
          project_version       Black Duck version name
 
-       optional arguments:
+       other arguments:
+         --blackduck_url BLACKDUCK_URL
+                               Black Duck server URL including https://
+         --blackduck_api_token BLACKDUCK_API_TOKEN
+                               Black Duck API token
+         --blackduck_trust_certs
+                               Trust Black Duck server certificates if unsigned
+         --blackduck_timeout   Change the server connection timeout (default 15 seconds)
          -h, --help            show this help message and exit
          -v, --version         Print script version and exit
          -o OUTPUT, --output OUTPUT
@@ -89,13 +100,12 @@ The program can be invoked as follows:
          -b, --basic           Do not export copyright, download link or package file data (speeds up processing - same as using "--no_copyrights --no_files")
          -x, --exclude_ignored_components
                                Exclude ignored components from the output file
-         --blackduck_url BLACKDUCK_URL
-                               Black Duck server URL including https://
-         --blackduck_api_token BLACKDUCK_API_TOKEN
-                               Black Duck API token
-         --blackduck_trust_certs
-                               Trust Black Duck server certificates if unsigned
-         --blackduck_timeout   Change the server connection timeout (default 15 seconds)
+         --modify_spdx_fields
+                               Specify JSON fields to modify in SPDX final output using the following modified JSON
+                               representation: "packages.[*].annotations.[*].annotator;Organization: Acme,
+                               packages.[*].annotations.[*].annotationType;REVIEW.
+                               This would set all package annotation annotator entries to "Organization: Acme" and all 
+                               annotation types to "REVIEW"
          --debug               Add reporting of processed components
 
 
