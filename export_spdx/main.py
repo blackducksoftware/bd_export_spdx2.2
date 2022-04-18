@@ -143,8 +143,11 @@ def run():
     print("Done")
 
     # deal with filtering out certain fields from the final output based on command line input
-    modification_instructions = modify_spdx_fields.split(',')
-    modification_instructions = [string.strip() for string in modification_instructions]
+    if modify_spdx_fields is not None and modify_spdx_fields != '':
+        modification_instructions = modify_spdx_fields.split(',')
+        modification_instructions = [string.strip() for string in modification_instructions]
+    else:
+        modification_instructions = []
 
     entrypoint = globals.spdx
 

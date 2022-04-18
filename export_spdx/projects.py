@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys
 
-from export_spdx import globals
+from export_spdx import globals, data
 
 
 def get_all_projects():
@@ -45,12 +45,15 @@ def get_bom_components(verdict):
     # if 'components' not in res:
     if True:
         # Getting the component list via a request is much quicker than the new Client model
-        thishref = res['href'] + "/components?limit=5000"
+        # thishref = res['href'] + "/components?limit=5000"
+        thishref = res['href'] + "/components"
+
         headers = {
             'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
         }
-        res = globals.bd.get_json(thishref, headers=headers)
-        bom_comps = res['items']
+        # res = globals.bd.get_json(thishref, headers=headers)
+        # bom_comps = res['items']
+        bom_comps = data.get_data_paged(globals.bd, thishref, headers)
     # else:
     #     bom_comps = globals.bd.get_resource('components', parent=ver)
     for comp in bom_comps:

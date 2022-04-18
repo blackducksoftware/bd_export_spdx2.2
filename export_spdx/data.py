@@ -131,12 +131,14 @@ def get_bom_components(verdict, exclude_ignored=False):
     # if 'components' not in res:
     if True:
         # Getting the component list via a request is much quicker than the new Client model
-        thishref = res['href'] + "/components?limit=5000"
+        # thishref = res['href'] + "/components?limit=5000"
+        thishref = res['href'] + "/components"
         headers = {
             'accept': "application/vnd.blackducksoftware.bill-of-materials-6+json",
         }
-        res = globals.bd.get_json(thishref, headers=headers)
-        bom_comps = res['items']
+        # res = globals.bd.get_json(thishref, headers=headers)
+        # bom_comps = res['items']
+        bom_comps = get_data_paged(globals.bd, thishref, headers)
     # else:
     #     bom_comps = globals.bd.get_resource('components', parent=ver)
     for comp in bom_comps:
@@ -149,3 +151,32 @@ def get_bom_components(verdict, exclude_ignored=False):
         comp_dict[compver] = comp
 
     return comp_dict
+
+
+def get_data_paged(bd, dataurl, headers):
+    bucket = 1000
+    pageurl = f"{dataurl}?limit={bucket}"
+
+    # try:
+    #     resp = bd.get_json(pageurl, headers=headers)
+    #     total = resp['totalCount']
+    #     alldata = resp['items']
+    #     offset = bucket
+    #     while len(alldata) < total:
+    #         resp = bd.get_json(f"{pageurl}&offset={offset}", headers=headers)
+    #         alldata += resp['items']
+    #         offset += bucket
+    # except Exception as e:
+    #     print(f"ERROR: Unable to get paged data from {dataurl}\n" + str(e))
+    #     return []
+    # return alldata
+
+    resp = bd.get_json(pageurl, headers=headers)
+    total = resp['totalCount']
+    alldata = resp['items']
+    offset = bucket
+    while len(alldata) < total:
+        resp = bd.get_json(f"{pageurl}&offset={offset}", headers=headers)
+        alldata += resp['items']
+        offset += bucket
+    return alldata

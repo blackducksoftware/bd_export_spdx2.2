@@ -170,10 +170,11 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
 
 
 def process_children(pkgname, compverurl, child_url, indenttext, comps_dict, comp_data_dict):
-    res = globals.bd.get_json(child_url + '?limit=5000')
+    # res = globals.bd.get_json(child_url + '?limit=5000')
+    items = data.get_data_paged(globals.bd, child_url, {})
 
     count = 0
-    for child in res['items']:
+    for child in items:
         if 'componentName' in child and 'componentVersionName' in child:
             if config.args.debug:
                 print("{}{}/{}".format(indenttext, child['componentName'], child['componentVersionName']))
