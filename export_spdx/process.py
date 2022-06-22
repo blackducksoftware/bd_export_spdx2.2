@@ -581,6 +581,17 @@ async def async_get_url(session, comp, token):
         result_data = await resp.json()
         if 'url' in result_data.keys():
             url = result_data['url']
+
+    if url == "NOASSERTION":        
+        hrefs = comp['_meta']['links']        
+        componentLink = next((item for item in hrefs if item["rel"] == "component-home"), None)        
+        if componentLink is None:            
+            url = "NOASSERTION"            
+            if config.args.debug:                
+                print('Component Name:' + comp['componentName'] + ' - ' + 'Component Link:' + url)       
+        else:            
+            url = componentLink['href']
+
     return comp['componentVersion'], url
 
 
