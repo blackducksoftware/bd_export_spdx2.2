@@ -539,7 +539,7 @@ async def async_get_licenses(session, lcomp, token):
                         lic_text = await resp.text('utf-8')
                         if thislic not in globals.spdx_lics:
                             mydict = {
-                                'licenseID': spdx.quote(thislic),
+                                'licenseId': spdx.quote(thislic),
                                 'extractedText': spdx.quote(lic_text)
                             }
                             globals.spdx["hasExtractedLicensingInfos"].append(mydict)
