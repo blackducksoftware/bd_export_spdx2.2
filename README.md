@@ -1,4 +1,8 @@
 # Synopsys Black Duck - bd_export_spdx22_json.py v0.24
+# DEPRECATION NOTICE
+
+The functionality of this script has been superceded by features in standard Black Duck, which should be used for SPDX export going forward. SPDX and CycloneDX export is supported within Project Versions under the Report tab.
+
 # OVERVIEW
 
 This script is provided under an OSS license (specified in the LICENSE file) to allow users to export SPDX version 2.2 in JSON format from Black Duck projects.
