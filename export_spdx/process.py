@@ -114,9 +114,9 @@ def process_comp(comps_dict, tcomp, comp_data_dict):
             packagesuppliername = packagesuppliername + "NOASSERTION"
 
         # TO DO - use packagesuppliername somewhere
-
+        component_version_ref = tcomp['componentVersion'].split('/')[-1]
         thisdict = {
-            "SPDXID": spdx.quote(spdxpackage_name),
+            "SPDXID": 'SPDXRef-package-' + component_version_ref,
             "name": spdx.quote(tcomp['componentName']),
             "versionInfo": spdx.quote(tcomp['componentVersionName']),
             "packageFileName": spdx.quote(package_file),
@@ -526,8 +526,8 @@ async def async_get_licenses(session, lcomp, token):
             else:
                 # Custom license
                 try:
-                    thislic = 'LicenseRef-' + spdx.clean_for_spdx(lic['licenseDisplay'] + '-' + lcomp['componentName'])
                     lic_ref = lic['license'].split("/")[-1]
+                    thislic = 'LicenseRef-' + lic_ref
                     headers = {
                         'accept': "text/plain",
                         'Authorization': f'Bearer {token}',
